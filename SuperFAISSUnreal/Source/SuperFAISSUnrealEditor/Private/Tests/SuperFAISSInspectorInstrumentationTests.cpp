@@ -174,19 +174,19 @@ bool FSuperFAISSInspectorInstrumentationNonPerturbationTest::RunTest(const FStri
 				ResultOn.TotalCount == ResultOff.TotalCount, true);
 	}
 
-	// Correspondence: the Primary/CompatibleSecond pair ported from
+	// Correspondence: the Primary/CompatibleComparison pair ported from
 	// SuperFAISS.D.InspectorCorrespondenceLateRejectionClearsList (already proven
 	// there to give GetMatchPairResults().Num() > 0).
 	USuperFAISSVectorBank* Primary = MakeBank(*this, SeededRows(20, 8, 0xC0B1), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	USuperFAISSVectorBank* CompatibleSecond = MakeBank(*this, SeededRows(20, 8, 0xC0B2), 20, 8,
+	USuperFAISSVectorBank* CompatibleComparison = MakeBank(*this, SeededRows(20, 8, 0xC0B2), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	if (Primary != nullptr && CompatibleSecond != nullptr)
+	if (Primary != nullptr && CompatibleComparison != nullptr)
 	{
 		UE::Trace::ToggleChannel(TEXT("SuperFAISS"), false);
 		TSharedRef<SSuperFAISSBankInspector> Off = SNew(SSuperFAISSBankInspector);
 		Off->SetBankForTest(Primary);
-		Off->SetSecondBankForTest(CompatibleSecond);
+		Off->SetComparisonBankForTest(CompatibleComparison);
 		Off->ComputeCorrespondence();
 		const TArray<FSuperFAISSMatchPairResult> PairsOff = Off->GetMatchPairResults();
 		const FString StatusOff = Off->GetCorrespondenceStatus();
@@ -196,7 +196,7 @@ bool FSuperFAISSInspectorInstrumentationNonPerturbationTest::RunTest(const FStri
 		UE::Trace::ToggleChannel(TEXT("SuperFAISS"), true);
 		TSharedRef<SSuperFAISSBankInspector> On = SNew(SSuperFAISSBankInspector);
 		On->SetBankForTest(Primary);
-		On->SetSecondBankForTest(CompatibleSecond);
+		On->SetComparisonBankForTest(CompatibleComparison);
 		On->ComputeCorrespondence();
 		UE::Trace::ToggleChannel(TEXT("SuperFAISS"), false);
 

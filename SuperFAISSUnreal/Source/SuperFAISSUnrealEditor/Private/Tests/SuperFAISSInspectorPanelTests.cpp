@@ -1,7 +1,7 @@
 // Bank Inspector I. First landed: USuperFAISSInspectorSettings + the chunked
 // slow-task scaffold (progress/cancel) + View A (Structure) + View B (Novelty
 // probe) — reviewed as built code. Second pass adds: MatchK/CslsMarginThreshold on
-// the settings object, and View C (Correspondence) — the second-bank slot, the
+// the settings object, and View C (Correspondence) — the comparison-bank slot, the
 // compatibility rejection matrix, the matched-pair list, and the full invalidation
 // matrix (WITHOUT the archive-swap leg — the inspection-source abstraction was not
 // yet started) — reviewed as built code. Third pass adds: the inspection-source
@@ -9,7 +9,7 @@
 // generalizing the widget's data source from USuperFAISSVectorBank-only to EITHER a
 // registry asset OR a transient, editor-private archive-loaded
 // USuperFAISSScratchBank; the "Open scratch archive..." affordance
-// (OpenScratchArchiveFromBytes / OpenSecondScratchArchiveFromBytes); the archive
+// (OpenScratchArchiveFromBytes / OpenComparisonScratchArchiveFromBytes); the archive
 // rejection matrix; the archive-swap leg of the reset/invalidation matrix;
 // ComputeStructure()/ComputeCorrespondence() re-wired to read either source (real,
 // both slots); and the space-law crux left DELIBERATELY red in
@@ -455,7 +455,7 @@ bool FSuperFAISSInspectorNoBankRejectionTest::RunTest(const FString& Parameters)
 		FString(TEXT("no valid bank selected")));
 
 	// Correspondence (slot 4): the same "no valid bank selected" idiom for the PRIMARY
-	// bank precondition, checked before the second-bank slot is even consulted.
+	// bank precondition, checked before the comparison-bank slot is even consulted.
 	Inspector->ComputeCorrespondence();
 	TestEqual(TEXT("Correspondence: no primary bank selected status"), Inspector->GetCorrespondenceStatus(),
 		FString(TEXT("no valid bank selected")));
@@ -483,7 +483,7 @@ bool FSuperFAISSInspectorStructureDisclosureCopyTest::RunTest(const FString& Par
 // an analysis-scope change both clear BOTH the Structure and Novelty caches together.
 // "archive-swap without widget close" (audit F3) is explicitly OUT OF SCOPE for slot 3
 // (no inspection-source abstraction exists yet — slot 4b) and is not celled here; the
-// second-bank axis (View C) is likewise slot 4 and not celled here.
+// comparison-bank axis (View C) is likewise slot 4 and not celled here.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSuperFAISSInspectorCacheInvalidationMatrixTest,
 	"SuperFAISS.D.InspectorCacheInvalidationMatrix",
@@ -766,8 +766,16 @@ bool FSuperFAISSInspectorChannelCosineSliceRenormalizationTest::RunTest(const FS
 
 	TestTrue(TEXT("row 0's chan0 direction is the nearest match to its own direction"),
 		SourceIndices.IsValidIndex(Hits[0].index) && SourceIndices[Hits[0].index] == 0);
-	TestTrue(TEXT("renormalized chan0 slice scores ~1.0 cosine similarity against its own direction"),
-		FMath::Abs(Hits[0].score - 1.0f) < 0.05f);
+	// Bit-exact, not a 5% band: row 0's raw value at chan0's queried element is 10.0 (the
+	// row's own whole-row maxAbs, since chan1 also carries 10.0), so its int8 quantized
+	// code is exactly 127 (saturated) and scale = 10.0f/127.0f. Re-multiplying
+	// scale*127*invNorm (bake.cpp's own ComputeChannelInverseNorms formula) reproduces
+	// exactly 1.0f for this fixture -- traced through the actual dotI8/invNorm formulas
+	// and confirmed by an independent float32 simulation of the pipeline. A prior 0.05f
+	// (5%) band would have passed the ~0.7071 non-renormalized bug value this test exists
+	// to catch by a wide margin; exact equality is the correct, tighter assertion.
+	TestTrue(TEXT("renormalized chan0 slice scores exact 1.0 cosine similarity against its own direction"),
+		Hits[0].score == 1.0f);
 
 	return true;
 }
@@ -1391,9 +1399,9 @@ bool FSuperFAISSInspectorConcurrencyGrepTargetTest::RunTest(const FString& Param
 // dimension, scoped to slot 4 — the archive/tombstone legs remain out of scope, slot 4b).
 // ===========================================================================
 
-// Dim 2: the second-bank compatibility rejection matrix (dims mismatch, metric mismatch,
-// invalid asset) + the "no second bank selected" precondition. GREEN AT AUTHORING TIME —
-// CheckSecondBankCompatible is real, shipped-shape logic (plain field comparisons
+// Dim 2: the comparison-bank compatibility rejection matrix (dims mismatch, metric mismatch,
+// invalid asset) + the "no comparison bank selected" precondition. GREEN AT AUTHORING TIME —
+// CheckComparisonBankCompatible is real, shipped-shape logic (plain field comparisons
 // already available on USuperFAISSVectorBank), no achievement left to gate; the file
 // header's disclosure discipline applies (mirrors slot 3's self-exclusion/
 // evidence-recompute/disclosure-copy/persistence cells). Kept as a standing regression
@@ -1414,18 +1422,18 @@ bool FSuperFAISSInspectorCorrespondenceCompatibilityMatrixTest::RunTest(const FS
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(Primary);
 
-	// No second bank selected at all.
+	// No comparison bank selected at all.
 	Inspector->ComputeCorrespondence();
-	TestEqual(TEXT("no second bank: status"), Inspector->GetCorrespondenceStatus(),
-		FString(TEXT("no second bank selected")));
-	TestEqual(TEXT("no second bank: pair list empty"), Inspector->GetMatchPairResults().Num(), 0);
+	TestEqual(TEXT("no comparison bank: status"), Inspector->GetCorrespondenceStatus(),
+		FString(TEXT("no comparison bank selected")));
+	TestEqual(TEXT("no comparison bank: pair list empty"), Inspector->GetMatchPairResults().Num(), 0);
 
 	// Invalid asset: a NewObject with no InitFromSource ever called fails IsValid().
 	USuperFAISSVectorBank* InvalidBank = NewObject<USuperFAISSVectorBank>();
-	Inspector->SetSecondBankForTest(InvalidBank);
+	Inspector->SetComparisonBankForTest(InvalidBank);
 	Inspector->ComputeCorrespondence();
 	TestEqual(TEXT("invalid asset: status"), Inspector->GetCorrespondenceStatus(),
-		FString(TEXT("second bank: invalid asset")));
+		FString(TEXT("comparison bank: invalid asset")));
 	TestEqual(TEXT("invalid asset: pair list empty"), Inspector->GetMatchPairResults().Num(), 0);
 
 	// Dims mismatch: same metric, different dims.
@@ -1433,10 +1441,10 @@ bool FSuperFAISSInspectorCorrespondenceCompatibilityMatrixTest::RunTest(const FS
 		ESuperFAISSBankMetric::Cosine, ESuperFAISSBankQuantization::Float32);
 	if (WrongDims != nullptr)
 	{
-		Inspector->SetSecondBankForTest(WrongDims);
+		Inspector->SetComparisonBankForTest(WrongDims);
 		Inspector->ComputeCorrespondence();
 		TestEqual(TEXT("dims mismatch: status"), Inspector->GetCorrespondenceStatus(),
-			FString(TEXT("second bank: dims mismatch")));
+			FString(TEXT("comparison bank: dims mismatch")));
 		TestEqual(TEXT("dims mismatch: pair list empty"), Inspector->GetMatchPairResults().Num(), 0);
 	}
 
@@ -1445,10 +1453,10 @@ bool FSuperFAISSInspectorCorrespondenceCompatibilityMatrixTest::RunTest(const FS
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
 	if (WrongMetric != nullptr)
 	{
-		Inspector->SetSecondBankForTest(WrongMetric);
+		Inspector->SetComparisonBankForTest(WrongMetric);
 		Inspector->ComputeCorrespondence();
 		TestEqual(TEXT("metric mismatch: status"), Inspector->GetCorrespondenceStatus(),
-			FString(TEXT("second bank: metric mismatch")));
+			FString(TEXT("comparison bank: metric mismatch")));
 		TestEqual(TEXT("metric mismatch: pair list empty"), Inspector->GetMatchPairResults().Num(), 0);
 	}
 	return true;
@@ -1471,31 +1479,31 @@ bool FSuperFAISSInspectorCorrespondenceLateRejectionClearsListTest::RunTest(cons
 {
 	USuperFAISSVectorBank* Primary = MakeBank(*this, SeededRows(20, 8, 0xC0B1), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	USuperFAISSVectorBank* CompatibleSecond = MakeBank(*this, SeededRows(20, 8, 0xC0B2), 20, 8,
+	USuperFAISSVectorBank* CompatibleComparison = MakeBank(*this, SeededRows(20, 8, 0xC0B2), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	if (Primary == nullptr || CompatibleSecond == nullptr)
+	if (Primary == nullptr || CompatibleComparison == nullptr)
 	{
 		return true;
 	}
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(Primary);
-	Inspector->SetSecondBankForTest(CompatibleSecond);
+	Inspector->SetComparisonBankForTest(CompatibleComparison);
 	Inspector->ComputeCorrespondence();
 	TestTrue(TEXT("(setup) a pair list exists before the incompatible swap"),
 		Inspector->GetMatchPairResults().Num() > 0);
 
-	USuperFAISSVectorBank* IncompatibleSecond = MakeBank(*this, SeededRows(20, 12, 0xC0B3), 20, 12,
+	USuperFAISSVectorBank* IncompatibleComparison = MakeBank(*this, SeededRows(20, 12, 0xC0B3), 20, 12,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	if (IncompatibleSecond == nullptr)
+	if (IncompatibleComparison == nullptr)
 	{
 		return true;
 	}
-	Inspector->SetSecondBankForTest(IncompatibleSecond);
+	Inspector->SetComparisonBankForTest(IncompatibleComparison);
 	Inspector->ComputeCorrespondence();
 	TestEqual(TEXT("late rejection: prior pair list cleared to empty"),
 		Inspector->GetMatchPairResults().Num(), 0);
 	TestEqual(TEXT("late rejection: status is the dims-mismatch line item"),
-		Inspector->GetCorrespondenceStatus(), FString(TEXT("second bank: dims mismatch")));
+		Inspector->GetCorrespondenceStatus(), FString(TEXT("comparison bank: dims mismatch")));
 	return true;
 }
 
@@ -1512,15 +1520,15 @@ bool FSuperFAISSInspectorCorrespondenceMixedQuantizationDisclosureTest::RunTest(
 {
 	USuperFAISSVectorBank* Primary = MakeBank(*this, SeededRows(20, 8, 0xC0C1), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Int8);
-	USuperFAISSVectorBank* Second = MakeBank(*this, SeededRows(20, 8, 0xC0C2), 20, 8,
+	USuperFAISSVectorBank* Comparison = MakeBank(*this, SeededRows(20, 8, 0xC0C2), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	if (Primary == nullptr || Second == nullptr)
+	if (Primary == nullptr || Comparison == nullptr)
 	{
 		return true;
 	}
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(Primary);
-	Inspector->SetSecondBankForTest(Second);
+	Inspector->SetComparisonBankForTest(Comparison);
 	Inspector->ComputeCorrespondence();
 	TestTrue(TEXT("mixed quantization: a mixed int8/float32 pair is NOT rejected"),
 		Inspector->GetMatchPairResults().Num() > 0);
@@ -1530,15 +1538,15 @@ bool FSuperFAISSInspectorCorrespondenceMixedQuantizationDisclosureTest::RunTest(
 }
 
 // Dim 1, the full M4 invalidation matrix WITHOUT the archive-swap leg (section 25.9's
-// "primary re-select, scope change, second-bank change, parameter change" -- the fourth,
+// "primary re-select, scope change, comparison-bank change, parameter change" -- the fourth,
 // parameter change, composes no observable state to construct a cell against: see
 // InvalidateAnalysisCaches()'s own header comment, ComputeCorrespondence reads
 // MatchK/CslsMarginThreshold fresh on every trigger click, mirroring Structure's
 // no-persistent-cache posture -- noted, not celled, exactly Novelty-baseline's F1
 // precedent shape in reverse). Primary re-select and scope change are GREEN AT
 // AUTHORING TIME (InvalidateAnalysisCaches() already really resets MatchPairResults,
-// extending its already-shipped slot-3 body). The second-bank-change leg is also green:
-// OnSecondBankSelected() resets SecondArchive and calls InvalidateAnalysisCaches(), the
+// extending its already-shipped slot-3 body). The comparison-bank-change leg is also green:
+// OnComparisonBankSelected() resets ComparisonArchive and calls InvalidateAnalysisCaches(), the
 // same reset the other three legs exercise.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSuperFAISSInspectorCorrespondenceInvalidationMatrixTest,
@@ -1553,11 +1561,11 @@ bool FSuperFAISSInspectorCorrespondenceInvalidationMatrixTest::RunTest(const FSt
 	USuperFAISSVectorBank* Primary = MakeBank(*this, SeededRows(20, 32, 0xC0D1), 20, 32,
 		ESuperFAISSBankMetric::Cosine, ESuperFAISSBankQuantization::Int8,
 		ChannelNames, ChannelOffsets, ChannelLengths);
-	USuperFAISSVectorBank* SecondA = MakeBank(*this, SeededRows(20, 32, 0xC0D2), 20, 32,
+	USuperFAISSVectorBank* ComparisonA = MakeBank(*this, SeededRows(20, 32, 0xC0D2), 20, 32,
 		ESuperFAISSBankMetric::Cosine, ESuperFAISSBankQuantization::Int8);
-	USuperFAISSVectorBank* SecondB = MakeBank(*this, SeededRows(20, 32, 0xC0D3), 20, 32,
+	USuperFAISSVectorBank* ComparisonB = MakeBank(*this, SeededRows(20, 32, 0xC0D3), 20, 32,
 		ESuperFAISSBankMetric::Cosine, ESuperFAISSBankQuantization::Int8);
-	if (Primary == nullptr || SecondA == nullptr || SecondB == nullptr)
+	if (Primary == nullptr || ComparisonA == nullptr || ComparisonB == nullptr)
 	{
 		return true;
 	}
@@ -1565,7 +1573,7 @@ bool FSuperFAISSInspectorCorrespondenceInvalidationMatrixTest::RunTest(const FSt
 
 	// Leg 1: primary re-select.
 	Inspector->SetBankForTest(Primary);
-	Inspector->SetSecondBankForTest(SecondA);
+	Inspector->SetComparisonBankForTest(ComparisonA);
 	Inspector->ComputeCorrespondence();
 	TestTrue(TEXT("(setup) a pair list exists before primary re-select"),
 		Inspector->GetMatchPairResults().Num() > 0);
@@ -1574,7 +1582,7 @@ bool FSuperFAISSInspectorCorrespondenceInvalidationMatrixTest::RunTest(const FSt
 		Inspector->GetMatchPairResults().Num(), 0);
 
 	// Leg 2: analysis-scope change.
-	Inspector->SetSecondBankForTest(SecondA);
+	Inspector->SetComparisonBankForTest(ComparisonA);
 	Inspector->ComputeCorrespondence();
 	TestTrue(TEXT("(setup) a pair list exists before the scope change"),
 		Inspector->GetMatchPairResults().Num() > 0);
@@ -1583,13 +1591,13 @@ bool FSuperFAISSInspectorCorrespondenceInvalidationMatrixTest::RunTest(const FSt
 		Inspector->GetMatchPairResults().Num(), 0);
 	Inspector->SetAnalysisScopeForTest(TEXT("(whole row)"));
 
-	// Leg 3 (NEW this round): second-bank change.
-	Inspector->SetSecondBankForTest(SecondA);
+	// Leg 3 (NEW this round): comparison-bank change.
+	Inspector->SetComparisonBankForTest(ComparisonA);
 	Inspector->ComputeCorrespondence();
-	TestTrue(TEXT("(setup) a pair list exists before the second-bank change"),
+	TestTrue(TEXT("(setup) a pair list exists before the comparison-bank change"),
 		Inspector->GetMatchPairResults().Num() > 0);
-	Inspector->SetSecondBankForTest(SecondB);
-	TestEqual(TEXT("second-bank change clears the Correspondence cache"),
+	Inspector->SetComparisonBankForTest(ComparisonB);
+	TestEqual(TEXT("comparison-bank change clears the Correspondence cache"),
 		Inspector->GetMatchPairResults().Num(), 0);
 	return true;
 }
@@ -1628,7 +1636,7 @@ bool FSuperFAISSInspectorCorrespondenceSizeAxesTest::RunTest(const FString& Para
 		}
 		TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 		Inspector->SetBankForTest(A);
-		Inspector->SetSecondBankForTest(B);
+		Inspector->SetComparisonBankForTest(B);
 		Inspector->ComputeCorrespondence();
 		TestEqual(FString::Printf(TEXT("size axes (%s): checked count == A.Count (cap doesn't engage)"),
 			Case.Name), Inspector->GetMatchPairResults().Num(), Case.ACount);
@@ -1652,15 +1660,15 @@ bool FSuperFAISSInspectorCorrespondenceCancelTest::RunTest(const FString& Parame
 {
 	USuperFAISSVectorBank* Primary = MakeBank(*this, SeededRows(20, 8, 0xC0F1), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	USuperFAISSVectorBank* Second = MakeBank(*this, SeededRows(20, 8, 0xC0F2), 20, 8,
+	USuperFAISSVectorBank* Comparison = MakeBank(*this, SeededRows(20, 8, 0xC0F2), 20, 8,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	if (Primary == nullptr || Second == nullptr)
+	if (Primary == nullptr || Comparison == nullptr)
 	{
 		return true;
 	}
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(Primary);
-	Inspector->SetSecondBankForTest(Second);
+	Inspector->SetComparisonBankForTest(Comparison);
 
 	// Cancel before the first (and only) chunk boundary.
 	Inspector->DebugCancelAfterChunks = 0;
@@ -1766,7 +1774,7 @@ bool FSuperFAISSInspectorCorrespondencePanelFeatTest::RunTest(const FString& Par
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(A);
-	Inspector->SetSecondBankForTest(B);
+	Inspector->SetComparisonBankForTest(B);
 	Inspector->ComputeCorrespondence();
 
 	const TArray<FSuperFAISSMatchPairResult>& Pairs = Inspector->GetMatchPairResults();
@@ -1930,29 +1938,29 @@ bool FSuperFAISSInspectorArchiveOpenRejectionMatrixTest::RunTest(const FString& 
 	return true;
 }
 
-// The second-bank slot's mirror (temper W1): the SAME open/reject affordance and
-// mutual-exclusion rule on the second slot, exercised once (not the full three-way
+// The comparison-bank slot's mirror (temper W1): the SAME open/reject affordance and
+// mutual-exclusion rule on the comparison slot, exercised once (not the full three-way
 // rejection matrix again -- that machinery is shared, proven above; this cell's own
-// incremental claim is that the SECOND slot's own wiring, not the shared rejection
+// incremental claim is that the COMPARISON slot's own wiring, not the shared rejection
 // path, is real too).
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSuperFAISSInspectorSecondArchiveOpenAndMutualExclusionTest,
-	"SuperFAISS.D.InspectorSecondArchiveOpenAndMutualExclusion",
+	FSuperFAISSInspectorComparisonArchiveOpenAndMutualExclusionTest,
+	"SuperFAISS.D.InspectorComparisonArchiveOpenAndMutualExclusion",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSuperFAISSInspectorSecondArchiveOpenAndMutualExclusionTest::RunTest(const FString& Parameters)
+bool FSuperFAISSInspectorComparisonArchiveOpenAndMutualExclusionTest::RunTest(const FString& Parameters)
 {
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 
-	USuperFAISSVectorBank* SecondAsset = MakeBank(*this, SeededRows(10, 4, 0xB001), 10, 4,
+	USuperFAISSVectorBank* ComparisonAsset = MakeBank(*this, SeededRows(10, 4, 0xB001), 10, 4,
 		ESuperFAISSBankMetric::L2, ESuperFAISSBankQuantization::Float32);
-	if (SecondAsset == nullptr)
+	if (ComparisonAsset == nullptr)
 	{
 		return true;
 	}
-	Inspector->SetSecondBankForTest(SecondAsset);
-	TestEqual(TEXT("(setup) second source is the asset"),
-		static_cast<uint8>(Inspector->GetSecondSource().Kind), static_cast<uint8>(FSuperFAISSInspectionSource::EKind::Asset));
+	Inspector->SetComparisonBankForTest(ComparisonAsset);
+	TestEqual(TEXT("(setup) comparison source is the asset"),
+		static_cast<uint8>(Inspector->GetComparisonSource().Kind), static_cast<uint8>(FSuperFAISSInspectionSource::EKind::Asset));
 
 	TArray<uint8> Bytes;
 	if (!MakeScratchArchiveBytes(*this, SeededRows(15, 4, 0xB002), 15, 4, ESuperFAISSBankMetric::L2,
@@ -1960,15 +1968,15 @@ bool FSuperFAISSInspectorSecondArchiveOpenAndMutualExclusionTest::RunTest(const 
 	{
 		return true;
 	}
-	TestTrue(TEXT("second archive open: succeeds"),
-		Inspector->OpenSecondScratchArchiveFromBytes(Bytes, TEXT("second.bin")));
-	TestEqual(TEXT("second archive open: second source is now Archive, superseding the asset"),
-		static_cast<uint8>(Inspector->GetSecondSource().Kind), static_cast<uint8>(FSuperFAISSInspectionSource::EKind::Archive));
+	TestTrue(TEXT("comparison archive open: succeeds"),
+		Inspector->OpenComparisonScratchArchiveFromBytes(Bytes, TEXT("comparison.bin")));
+	TestEqual(TEXT("comparison archive open: comparison source is now Archive, superseding the asset"),
+		static_cast<uint8>(Inspector->GetComparisonSource().Kind), static_cast<uint8>(FSuperFAISSInspectionSource::EKind::Archive));
 
 	// Reversing direction: picking an asset supersedes the open archive.
-	Inspector->SetSecondBankForTest(SecondAsset);
-	TestEqual(TEXT("second asset re-select: supersedes the open archive"),
-		static_cast<uint8>(Inspector->GetSecondSource().Kind), static_cast<uint8>(FSuperFAISSInspectionSource::EKind::Asset));
+	Inspector->SetComparisonBankForTest(ComparisonAsset);
+	TestEqual(TEXT("comparison asset re-select: supersedes the open archive"),
+		static_cast<uint8>(Inspector->GetComparisonSource().Kind), static_cast<uint8>(FSuperFAISSInspectionSource::EKind::Asset));
 	return true;
 }
 
@@ -2561,7 +2569,7 @@ bool FSuperFAISSInspectorCorrespondencePrunedArchiveSlotATest::RunTest(const FSt
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->OpenScratchArchiveFromBytes(ArchiveBytesA, TEXT("pruned-correspondence-a.bin"));
-	Inspector->SetSecondBankForTest(B);
+	Inspector->SetComparisonBankForTest(B);
 	const FSuperFAISSInspectionSource PrimarySource = Inspector->GetPrimarySource();
 	TestEqual(TEXT("(setup) slot A published count includes the grown landmarks"), PrimarySource.GetCount(), ACount);
 	TestEqual(TEXT("(setup) slot A live count excludes them"), PrimarySource.GetLiveCount(), LandmarkCount);
@@ -2581,7 +2589,7 @@ bool FSuperFAISSInspectorCorrespondencePrunedArchiveSlotATest::RunTest(const FSt
 
 // Dim 10 (temper W1's own explicit ask -- "exercised in slot A and in slot B
 // separately"): the SAME PRUNED-archive Correspondence geometry with the archive in
-// SLOT B (second), a baked asset in slot A. GREEN AT AUTHORING TIME -- an HONEST,
+// SLOT B (comparison), a baked asset in slot A. GREEN AT AUTHORING TIME -- an HONEST,
 // asymmetric finding worth stating plainly (not the mirror-image red cell slot A gets):
 // B is NEVER the A-side sample role inside ComputeCorrespondence() (only the primary
 // plays that role, and only that role hits BuildAnalysisSample(Source, ...)'s still-
@@ -2655,10 +2663,10 @@ bool FSuperFAISSInspectorCorrespondencePrunedArchiveSlotBTest::RunTest(const FSt
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(A);
-	Inspector->OpenSecondScratchArchiveFromBytes(ArchiveBytesB, TEXT("pruned-correspondence-b.bin"));
-	const FSuperFAISSInspectionSource SecondSource = Inspector->GetSecondSource();
-	TestEqual(TEXT("(setup) slot B published count includes the grown landmarks"), SecondSource.GetCount(), BCount);
-	TestEqual(TEXT("(setup) slot B live count excludes them"), SecondSource.GetLiveCount(), LandmarkCount);
+	Inspector->OpenComparisonScratchArchiveFromBytes(ArchiveBytesB, TEXT("pruned-correspondence-b.bin"));
+	const FSuperFAISSInspectionSource ComparisonSource = Inspector->GetComparisonSource();
+	TestEqual(TEXT("(setup) slot B published count includes the grown landmarks"), ComparisonSource.GetCount(), BCount);
+	TestEqual(TEXT("(setup) slot B live count excludes them"), ComparisonSource.GetLiveCount(), LandmarkCount);
 
 	Inspector->ComputeCorrespondence();
 
@@ -2674,7 +2682,7 @@ bool FSuperFAISSInspectorCorrespondencePrunedArchiveSlotBTest::RunTest(const FSt
 }
 
 // ComputeCorrespondence's status-line denominators used the PUBLISHED count
-// (SecondSource.GetCount() / PrimarySource.GetCount()) instead of the LIVE count,
+// (ComparisonSource.GetCount() / PrimarySource.GetCount()) instead of the LIVE count,
 // overstating "unmatched (B)" and the "N of M A-rows checked" denominator by the
 // tombstone total on an archive source. Both A and B are archives here, each carrying
 // tombstoned decoy rows on well-separated one-hot landmark axes so every LIVE A row finds
@@ -2746,14 +2754,14 @@ bool FSuperFAISSInspectorCorrespondenceLiveCountDenominatorsTest::RunTest(const 
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->OpenScratchArchiveFromBytes(ArchiveBytesA, TEXT("live-denom-a.bin"));
-	Inspector->OpenSecondScratchArchiveFromBytes(ArchiveBytesB, TEXT("live-denom-b.bin"));
+	Inspector->OpenComparisonScratchArchiveFromBytes(ArchiveBytesB, TEXT("live-denom-b.bin"));
 
 	const FSuperFAISSInspectionSource PrimarySource = Inspector->GetPrimarySource();
-	const FSuperFAISSInspectionSource SecondSource = Inspector->GetSecondSource();
+	const FSuperFAISSInspectionSource ComparisonSource = Inspector->GetComparisonSource();
 	TestEqual(TEXT("(setup) A published count includes tombstones"), PrimarySource.GetCount(), ACount);
 	TestEqual(TEXT("(setup) A live count excludes them"), PrimarySource.GetLiveCount(), LandmarkCount);
-	TestEqual(TEXT("(setup) B published count includes tombstones"), SecondSource.GetCount(), BCount);
-	TestEqual(TEXT("(setup) B live count excludes them"), SecondSource.GetLiveCount(), LandmarkCount);
+	TestEqual(TEXT("(setup) B published count includes tombstones"), ComparisonSource.GetCount(), BCount);
+	TestEqual(TEXT("(setup) B live count excludes them"), ComparisonSource.GetLiveCount(), LandmarkCount);
 
 	Inspector->ComputeCorrespondence();
 
@@ -2840,7 +2848,7 @@ bool FSuperFAISSInspectorCorrespondenceZeroEnergyDenominatorsTest::RunTest(const
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(A);
-	Inspector->SetSecondBankForTest(B);
+	Inspector->SetComparisonBankForTest(B);
 	Inspector->SetAnalysisScopeForTest(TEXT("chan0"));
 
 	Inspector->ComputeCorrespondence();
@@ -2946,7 +2954,7 @@ bool FSuperFAISSInspectorCorrespondenceFullViewTombstoneOrTest::RunTest(const FS
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(A);
-	Inspector->OpenSecondScratchArchiveFromBytes(ArchiveBytesB, TEXT("decoy.bin"));
+	Inspector->OpenComparisonScratchArchiveFromBytes(ArchiveBytesB, TEXT("decoy.bin"));
 	Inspector->ComputeCorrespondence();
 
 	const TArray<FSuperFAISSMatchPairResult>& Pairs = Inspector->GetMatchPairResults();
@@ -2993,12 +3001,12 @@ bool FSuperFAISSInspectorCorrespondenceArchiveVsBakedTransparencyTest::RunTest(c
 
 	TSharedRef<SSuperFAISSBankInspector> BakedInspector = SNew(SSuperFAISSBankInspector);
 	BakedInspector->SetBankForTest(A);
-	BakedInspector->SetSecondBankForTest(BAsAsset);
+	BakedInspector->SetComparisonBankForTest(BAsAsset);
 	BakedInspector->ComputeCorrespondence();
 
 	TSharedRef<SSuperFAISSBankInspector> ArchiveInspector = SNew(SSuperFAISSBankInspector);
 	ArchiveInspector->SetBankForTest(A);
-	ArchiveInspector->OpenSecondScratchArchiveFromBytes(BArchiveBytes, TEXT("transparency-b.bin"));
+	ArchiveInspector->OpenComparisonScratchArchiveFromBytes(BArchiveBytes, TEXT("transparency-b.bin"));
 	ArchiveInspector->ComputeCorrespondence();
 
 	const TArray<FSuperFAISSMatchPairResult>& BakedPairs = BakedInspector->GetMatchPairResults();

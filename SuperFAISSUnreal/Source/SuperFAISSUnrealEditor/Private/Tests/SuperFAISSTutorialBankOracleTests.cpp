@@ -50,20 +50,20 @@ namespace
 	};
 
 	// Opens the named tutorial bank as an ARCHIVE source on the given slot (primary or
-	// second), with RowsToTombstone Remove()'d before Save -- the real, shipped
-	// OpenScratchArchiveFromBytes/OpenSecondScratchArchiveFromBytes control-flow, exactly
+	// comparison), with RowsToTombstone Remove()'d before Save -- the real, shipped
+	// OpenScratchArchiveFromBytes/OpenComparisonScratchArchiveFromBytes control-flow, exactly
 	// the production seam a user's "Open scratch archive..." action drives. Returns false
 	// (and fails the test) if the bake or the open itself fails.
 	bool OpenTutorialArchive(FAutomationTestBase& Test, SSuperFAISSBankInspector& Inspector,
-		const FString& BankName, const TArray<int32>& RowsToTombstone, bool bSecondSlot)
+		const FString& BankName, const TArray<int32>& RowsToTombstone, bool bComparisonSlot)
 	{
 		TArray<uint8> Bytes;
 		if (!BakeAsArchiveBytes(Test, BankName, RowsToTombstone, Bytes))
 		{
 			return false;
 		}
-		const bool bOpened = bSecondSlot
-			? Inspector.OpenSecondScratchArchiveFromBytes(Bytes, BankName + TEXT("-archive"))
+		const bool bOpened = bComparisonSlot
+			? Inspector.OpenComparisonScratchArchiveFromBytes(Bytes, BankName + TEXT("-archive"))
 			: Inspector.OpenScratchArchiveFromBytes(Bytes, BankName + TEXT("-archive"));
 		Test.TestTrue(FString::Printf(TEXT("tutorial bank '%s' archive opens"), *BankName), bOpened);
 		return bOpened;
@@ -146,6 +146,14 @@ bool FSuperFAISSTutorialArchiveChannelScopeParityTest::RunTest(const FString& Pa
 		{
 			if (!SourceIndices.IsValidIndex(Hits[i].index)) { continue; }
 			const int32 SourceRow = SourceIndices[Hits[i].index];
+			// Genuinely inexact -- checked by construction and by execution. A hand analysis
+			// (one-hot 10.0-magnitude chanA slice, TutorialBankFixture.h's own "quant=Float32
+			// (exact)" comment) predicts bit-exact 1.0f/0.0f; asserting that literally sent
+			// every ChanADir=0 row to the wrong branch under the real engine build, even
+			// though the printed score reads 1.000000 -- the sample-build/query path's own
+			// float32 combine introduces a sub-%f-precision rounding step the hand derivation
+			// did not model. 1e-5f is this file's own pre-existing tolerance for this exact
+			// one-hot-fixture shape and comfortably covers the measured (few-ULP) noise.
 			if (FMath::Abs(Hits[i].score - 1.0f) < 1e-5f)
 			{
 				ActualOnes.Add(SourceRow);
@@ -171,7 +179,7 @@ bool FSuperFAISSTutorialArchiveChannelScopeParityTest::RunTest(const FString& Pa
 	// The archive side: SAME geometry, opened via the real production seam. SF34-005 is closed:
 	// BuildAnalysisSample(Source, ...) supports a channel scope for an Archive-kind source, and
 	// this call succeeds with the SAME golden answer as the asset leg above.
-	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {}, /*bSecondSlot*/ false))
+	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {}, /*bComparisonSlot*/ false))
 	{
 		return true;
 	}
@@ -241,7 +249,7 @@ bool FSuperFAISSTutorialArchiveChannelScopePrunedParityTest::RunTest(const FStri
 	USuperFAISSVectorBank* AssetBank = BakeAsAsset(*this, TEXT("Primary"));
 	if (AssetBank == nullptr) { return true; }
 	Inspector->SetBankForTest(AssetBank);
-	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {15}, /*bSecondSlot*/ false))
+	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {15}, /*bComparisonSlot*/ false))
 	{
 		return true;
 	}
@@ -278,6 +286,12 @@ bool FSuperFAISSTutorialArchiveChannelScopePrunedParityTest::RunTest(const FStri
 	for (int32 i = 0; i < HitCount; ++i)
 	{
 		if (!SourceIndices.IsValidIndex(Hits[i].index)) { continue; }
+		// Genuinely inexact -- see FSuperFAISSTutorialArchiveChannelScopeParityTest::
+		// CheckHits' comment above: a hand analysis of this one-hot 10.0-magnitude chanA
+		// slice predicts bit-exact 1.0f/0.0f, but that failed under the real engine build
+		// (a sub-%f-precision rounding step in the sample-build/query path the hand
+		// derivation did not model). 1e-5f is this file's own pre-existing tolerance for
+		// this exact fixture shape.
 		if (FMath::Abs(Hits[i].score - 1.0f) < 1e-5f)
 		{
 			ActualOnes.Add(SourceIndices[Hits[i].index]);
@@ -333,7 +347,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FSuperFAISSTutorialArchiveMemberLabelSourceIndexTest::RunTest(const FString& Parameters)
 {
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
-	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {15}, /*bSecondSlot*/ false))
+	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {15}, /*bComparisonSlot*/ false))
 	{
 		return true;
 	}
@@ -402,7 +416,7 @@ bool FSuperFAISSTutorialArchiveNoveltyParityTest::RunTest(const FString& Paramet
 	// asset selected on this slot. Before SF34-003's fix, the prior asset-only GetSelectedBank()
 	// read made this probe report "no valid bank selected" regardless of the archive's content.
 	TSharedRef<SSuperFAISSBankInspector> ArchiveInspector = SNew(SSuperFAISSBankInspector);
-	if (!OpenTutorialArchive(*this, ArchiveInspector.Get(), TEXT("Primary"), {}, /*bSecondSlot*/ false))
+	if (!OpenTutorialArchive(*this, ArchiveInspector.Get(), TEXT("Primary"), {}, /*bComparisonSlot*/ false))
 	{
 		return true;
 	}
@@ -489,7 +503,7 @@ bool FSuperFAISSTutorialCorrespondenceCalibrationTest::RunTest(const FString& Pa
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(Primary);
-	Inspector->SetSecondBankForTest(Secondary);
+	Inspector->SetComparisonBankForTest(Secondary);
 
 	auto FindPair = [Inspector](int32 SourceIndexA) -> const FSuperFAISSMatchPairResult*
 	{
@@ -518,9 +532,21 @@ bool FSuperFAISSTutorialCorrespondenceCalibrationTest::RunTest(const FString& Pa
 			TestTrue(TEXT("SF34-006: threshold far below the margin classifies Matched"),
 				Pair11->State == ESuperFAISSMatchState::Matched);
 			CleanMargin = Pair11->CslsMargin;
+			// Genuinely inexact, but 0.05f (5%) was never the right size for it: every row
+			// in this fixture is normalized at bake time by dividing by sqrt(200) (bake.cpp
+			// NormalizeRows), an irrational value not exactly representable in float32, so
+			// the underlying per-pair similarity sits within about 1 ULP of the hand-derived
+			// 0.5/1.0, not bit-exact to it -- confirmed by an independent float32/double
+			// simulation of the full NormalizeRows -> dot -> matching.cpp CSLS pipeline
+			// (measured margin 0.50000006, diff 5.96e-8 from the hand-derived 0.5). 0.05f
+			// would silently pass a margin wrong by two orders of magnitude more than any
+			// float rounding this pipeline can produce; 1e-4f (this suite's own tolerance
+			// for the same CSLS-margin quantity elsewhere, e.g. TutorialArchiveCorrespondence
+			// ParityTest below) is still ~1500x the measured noise and catches a genuinely
+			// wrong margin instead of only a wildly wrong one.
 			TestTrue(TEXT("SF34-006 oracle: row11<->Sec1 CSLS margin is close to the hand-derived 0.5 "
 				"(clean singleton pair, MatchK=2 -- design doc derivation table)"),
-				FMath::Abs(CleanMargin - 0.5f) < 0.05f);
+				FMath::Abs(CleanMargin - 0.5f) < 1e-4f);
 		}
 		const FSuperFAISSMatchPairResult* Pair13 = FindPair(13);
 		TestTrue(TEXT("(setup) row 13 has a match-pair result"), Pair13 != nullptr);
@@ -530,9 +556,13 @@ bool FSuperFAISSTutorialCorrespondenceCalibrationTest::RunTest(const FString& Pa
 			TestTrue(TEXT("SF34-006: threshold far below the margin classifies Matched"),
 				Pair13->State == ESuperFAISSMatchState::Matched);
 			DupMargin = Pair13->CslsMargin;
+			// Same measured noise floor as CleanMargin above (~3e-8, one order tighter here
+			// since this margin combines smaller similarity terms) -- 0.05f is unjustified by
+			// two-plus orders of magnitude; 1e-4f matches this suite's own CSLS-margin
+			// tolerance elsewhere.
 			TestTrue(TEXT("SF34-006 oracle: row13<->Sec3 CSLS margin is close to the hand-derived 0.25 "
 				"(the ISO-B/ISO-B-dup near-duplicate collision raises r_A -- design doc derivation table)"),
-				FMath::Abs(DupMargin - 0.25f) < 0.05f);
+				FMath::Abs(DupMargin - 0.25f) < 1e-4f);
 		}
 		const FSuperFAISSMatchPairResult* Pair14 = FindPair(14);
 		TestTrue(TEXT("(setup) row 14 has a match-pair result"), Pair14 != nullptr);
@@ -666,7 +696,7 @@ bool FSuperFAISSTutorialArchiveCorrespondenceParityTest::RunTest(const FString& 
 	TSharedRef<SSuperFAISSBankInspector> AssetInspector = SNew(SSuperFAISSBankInspector);
 	AssetInspector->SetBankForTest(AssetPrimary);
 	AssetInspector->SetAnalysisScopeForTest(TEXT("chanA"));
-	AssetInspector->SetSecondBankForTest(AssetSecondary);
+	AssetInspector->SetComparisonBankForTest(AssetSecondary);
 	AssetInspector->ComputeCorrespondence();
 
 	const FSuperFAISSMatchPairResult* AssetPair = FindPairIn(*AssetInspector, 4);
@@ -675,6 +705,10 @@ bool FSuperFAISSTutorialArchiveCorrespondenceParityTest::RunTest(const FString& 
 	TestEqual(TEXT("(setup) asset leg oracle: row4<->Secondary2"), AssetPair->SourceIndexB, 2);
 	TestTrue(TEXT("(setup) asset leg oracle: row4<->Secondary2 classifies Matched"),
 		AssetPair->State == ESuperFAISSMatchState::Matched);
+	// Genuinely inexact (see TutorialCorrespondenceCalibrationTest's CleanMargin comment):
+	// row normalization divides by an irrational sqrt(200), so the margin sits within ~1
+	// ULP of the hand-derived 0.5, not bit-exact to it. 1e-4f is ample headroom over that
+	// measured noise.
 	TestTrue(TEXT("(setup) asset leg oracle: margin close to the hand-derived 0.5"),
 		FMath::Abs(AssetPair->CslsMargin - 0.5f) < 1e-4f);
 
@@ -686,7 +720,7 @@ bool FSuperFAISSTutorialArchiveCorrespondenceParityTest::RunTest(const FString& 
 	USuperFAISSVectorBank* ArchivePrimaryAsset = BakeAsAsset(*this, TEXT("Primary"));
 	if (ArchivePrimaryAsset == nullptr) { return true; }
 	ArchiveInspector->SetBankForTest(ArchivePrimaryAsset); // populates ProjectionScopes (channel names)
-	if (!OpenTutorialArchive(*this, ArchiveInspector.Get(), TEXT("Primary"), {15}, /*bSecondSlot*/ false))
+	if (!OpenTutorialArchive(*this, ArchiveInspector.Get(), TEXT("Primary"), {15}, /*bComparisonSlot*/ false))
 	{
 		return true;
 	}
@@ -698,7 +732,7 @@ bool FSuperFAISSTutorialArchiveCorrespondenceParityTest::RunTest(const FString& 
 
 	USuperFAISSVectorBank* ArchiveSecondaryAsset = BakeAsAsset(*this, TEXT("Secondary"));
 	if (ArchiveSecondaryAsset == nullptr) { return true; }
-	ArchiveInspector->SetSecondBankForTest(ArchiveSecondaryAsset);
+	ArchiveInspector->SetComparisonBankForTest(ArchiveSecondaryAsset);
 	ArchiveInspector->ComputeCorrespondence();
 
 	const FSuperFAISSMatchPairResult* ArchivePair = FindPairIn(*ArchiveInspector, 4);
@@ -717,6 +751,11 @@ bool FSuperFAISSTutorialArchiveCorrespondenceParityTest::RunTest(const FString& 
 	// BuildAnalysisSample/excludeBits path the review flagged as untested produces the
 	// SAME correspondence answer as the already-proven asset path for an equivalent live
 	// row.
+	// Genuinely inexact: the asset and archive legs run the SAME CSLS computation but over
+	// independently re-decoded query buffers (DequantizeRowAsQuery on two distinct bank
+	// objects), so their per-pair similarity terms can each carry their own ~1-ULP
+	// irrational-normalization noise (see CleanMargin's comment above) that need not
+	// cancel. 1e-4f is ample headroom over that measured, sub-1e-6 noise floor.
 	TestTrue(TEXT("SF34-005/review-F2: asset<->archive CSLS margin parity for an equivalent live row"),
 		FMath::Abs(ArchivePair->CslsMargin - AssetPair->CslsMargin) < 1e-4f);
 

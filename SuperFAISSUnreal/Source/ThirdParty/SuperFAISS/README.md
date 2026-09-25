@@ -2,6 +2,8 @@
 
 [![tests](https://github.com/dansupergameprogrammer/superfaiss/actions/workflows/tests.yml/badge.svg)](https://github.com/dansupergameprogrammer/superfaiss/actions/workflows/tests.yml)
 
+**Current release: [v3.4.0](https://github.com/dansupergameprogrammer/superfaiss/releases/tag/v3.4.0)** — what each release added is in [CHANGELOG.md](CHANGELOG.md). Version markers in the feature list below record when a capability landed, not the current version.
+
 Fast, deterministic, allocation-free k-nearest-neighbor search for game runtimes —
 over banks you bake in your pipeline or grow at play time. One bank answers many
 questions: score the whole vector or any weighted slice of it, decompose every hit's
@@ -214,6 +216,23 @@ suite enforces that SIMD and mirror results are bit-identical on a device.
   in this library. These are the primitives the UE plugin's Bank Inspector tool is built on
   ([superfaiss-unreal](https://github.com/dansupergameprogrammer/superfaiss-unreal)); nothing
   about them is UE-specific. [API.md](docs/API.md).
+- **Archive peek without a load (v3.3).** `PeekScratchArchive` reads a serialized scratch
+  archive's header and channel table straight out of a byte span and reports its geometry plus
+  `archiveBytes` — exactly the number of bytes a `Load` will consume — without allocating an
+  arena, reading the payload, or touching a bank. It applies the same header rules `Load` does,
+  from one shared validator, so a peek and a load cannot drift apart about what a well-formed
+  archive is: whatever a peek rejects, a load rejects. A span shorter than the archive it
+  declares is `BadFormat`; a longer one is not, because whatever follows belongs to the caller.
+  That is the point — a host that appends its own trailer after the archive (a channel-name
+  frame, say) uses `archiveBytes` to locate and validate that trailer *before* committing the
+  load, rather than discovering a broken trailer with the rows already replaced. Reading the
+  header twice is free; unwinding a load is not. [API.md](docs/API.md).
+- **Diversity selection (v3.4).** `SelectDiverseMMR` re-ranks an over-fetched result list by
+  Maximal Marginal Relevance, so the top results are relevant *and* unlike each other: "ten
+  places the player might mean, not ten views of the same one." One `lambda` trades relevance
+  against spread, and `lambda = 1` is exactly relevance order. Redundancy is scored with the
+  new `ScoreXdPairSegmented`, so it weighs channels the way the query did. Cross-device
+  deterministic like the query path, with ties pinned to row index. [API.md](docs/API.md).
 
 ## What it deliberately is not
 

@@ -6,6 +6,15 @@
 
 #include "superfaiss/types.h"
 
+#if WITH_DEV_AUTOMATION_TESTS
+// §8.9's test-seam return-shape CONTRACT (Gate 1, the test author): `GetDriftResultForTest()` below
+// returns exactly `FSuperFAISSDriftResultForTest`, specified in this header so the governed
+// test files and this widget agree on one definition rather than two independently
+// maintained shapes. Test-only: the governed test directory itself, and this guarded
+// production include, are the only two places this header is ever reached from.
+#include "Tests/DriftDiversityOracle/Fixtures/SuperFAISSDriftDiversityTestContracts.h"
+#endif
+
 // V3.2 slot 4b: the inspection-source abstraction (FSuperFAISSInspectionSource, below)
 // needs the bank enum TYPES (ESuperFAISSBankMetric/ESuperFAISSBankQuantization) by value
 // in its own accessor signatures, not just a forward-declared class -- promoted from the
@@ -13,7 +22,7 @@
 #include "SuperFAISSVectorBank.h"
 // A real include, not a forward-declare: TStrongObjectPtr<USuperFAISSScratchBank> is a
 // widget-class member (FSuperFAISSArchiveSlotState::Bank, held by PrimaryArchive/
-// SecondArchive below), and its implicit
+// ComparisonArchive below), and its implicit
 // special members (constructed/destroyed wherever a TSharedRef<SSuperFAISSBankInspector>
 // is, including every automation test's SNew(...) call) need the complete type in EVERY
 // translation unit that includes this header, not only this widget's own .cpp.
@@ -129,6 +138,119 @@ struct FSuperFAISSMatchPairResult
 	ESuperFAISSMatchState State = ESuperFAISSMatchState::NotComputed;
 };
 
+// V3.4 plan §8: the drift panel's own per-channel row -- movement + both spread numbers +
+// the composed ratio (§8.3.1/§8.3.2) for one named channel, plus that channel's own
+// zero-denominator (§8.3.3) and ZeroNormQuery (§8.3.4) refusal state. Mirrors
+// FSuperFAISSDriftPerChannelResultForTest field-for-field (§8.9); the test seam is a
+// mechanical copy of this production struct, not a second definition of the same shape.
+struct FSuperFAISSDriftPerChannelResult
+{
+	FName ChannelName;
+	float Movement = 0.0f;
+	float SpreadCurrent = 0.0f;
+	float SpreadBaseline = 0.0f;
+	float ComposedRatio = 0.0f;
+	bool bZeroDenominatorRefusal = false;
+	bool bZeroNormQueryRefusal = false;
+};
+
+// V3.4 plan §7.2/§8.9 (dim-7 G-31): the shared identity block's own field values for a
+// drift result -- which two banks a displayed drift number actually came from, plus §8.7's
+// self-comparison disclosure. Populated only on a non-whole-panel-refused, non-cancelled
+// compute (mirrors FSuperFAISSDriftIdentityRecordForTest's own documented scope).
+struct FSuperFAISSDriftIdentityRecord
+{
+	FString PrimaryDisplayName;
+	int32 PrimaryLiveRowCount = 0;
+	int32 PrimaryDims = 0;
+	FString PrimaryMetric;
+	FString PrimaryQuantization;
+	FString ComparisonDisplayName;
+	int32 ComparisonLiveRowCount = 0;
+	int32 ComparisonDims = 0;
+	FString ComparisonMetric;
+	FString ComparisonQuantization;
+	bool bSelfComparison = false; // §8.7
+};
+
+// V3.4 plan §8: the drift panel's own displayed state -- the four raw analytics.h operator
+// values (§8.1), both whole-row spread numbers, the composed self-relative ratios (§8.3.1/
+// §8.3.2), the per-channel table (P-2a), the two whole-panel refusal states (§8.4), the two
+// per-line refusal states (§8.3.3/§8.3.4), the cancel state (§8.5), and the shared identity
+// block (§7.2). `GetDriftResultForTest()` (below) is a field-for-field copy of this struct
+// into §8.9's own contract shape -- the "displayed set, not the operator set" the automation
+// suite asserts against is this struct, read through the real panel path (ComputeDrift()),
+// never a parallel test-only computation.
+struct FSuperFAISSDriftResult
+{
+	// Whole-panel refusal states (§8.4). When either is set, no operator ran (asserted via
+	// DriftChunksProcessedForTest == 0, §8.9) and every field below is default/unpopulated.
+	bool bQuantizationRefusal = false;
+	FString QuantizationRefusalText;
+	bool bMetricDotRefusal = false;
+	FString MetricDotRefusalText;
+
+	// §8.5/dim 3a: set when the compute was cancelled via DebugCancelAfterChunks before
+	// completion. Every field below is unpopulated (default) when this is set.
+	bool bCancelled = false;
+
+	// Whole-row headline (§8.1, §8.3.1) -- re-pointed to a scoped channel's own values when
+	// the shared analysis-scope combo is scoped to one channel (§8.2, D-INSP-37).
+	float Movement = 0.0f;
+	float SpreadCurrent = 0.0f;
+	float SpreadBaseline = 0.0f;
+	float HeadlineRatio = 0.0f;
+	bool bHeadlineZeroDenominatorRefusal = false;
+	bool bHeadlineZeroNormQueryRefusal = false;
+
+	// Worst-case / typical divergence (§8.1, §8.3.2) -- always whole-row (§8.1's operator
+	// list carries no channel-scoped MaxNN/MeanNN form).
+	float MaxNN = 0.0f;
+	float WorstCaseRatio = 0.0f;
+	bool bWorstCaseZeroDenominatorRefusal = false;
+	float MeanNN = 0.0f;
+	float TypicalRatio = 0.0f;
+	bool bTypicalZeroDenominatorRefusal = false;
+
+	// Per-channel table (§8.1/P-2a, §8.3.2) -- every named channel, always, independent of
+	// the analysis-scope combo.
+	TArray<FSuperFAISSDriftPerChannelResult> Channels;
+
+	// The shared identity block (§7.2, dim-7 G-31).
+	FSuperFAISSDriftIdentityRecord Identity;
+};
+
+// V3.4 plan §9: the diversity slider's own displayed state for the most recent query --
+// the selection RunQuery rendered, in selection order. `SelectedIndices` are positions
+// within the over-fetched candidate pool (`PoolHits`), never bank-row indices (§6.2's
+// outSelectedIndices convention). `Relevance`/`Redundancy` are SelectDiverseMMR's own
+// outRelevance/outRedundancy display values (§9.5), or, on a §9.5a mid-selection fallback,
+// each returned candidate's pool relevance score and 0 respectively. Rebuilt on every
+// RunQuery call, never carried from a prior query.
+struct FSuperFAISSDiversityResult
+{
+	// The over-fetched pool, in the retrieval query's own relevance order (§9.3).
+	TArray<FSuperFAISSHit> PoolHits;
+	TArray<int32> SelectedIndices;
+	TArray<float> Relevance;
+	TArray<float> Redundancy;
+	// §9.5a: SelectDiverseMMR refused mid-selection; the rendered order is the pool's own
+	// top-K relevance order and the shared fallback note renders.
+	bool bMidSelectionRefusal = false;
+	// A whole-panel diversity refusal (§6.2's Metric::L2 zero-scale guard): SelectDiverseMMR
+	// was never called, the plain ranking renders, and WholePanelRefusalText states why.
+	bool bWholePanelRefusal = false;
+	FString WholePanelRefusalText;
+	// True only when SelectDiverseMMR returned Ok for this query -- the one state in which
+	// the relevance/redundancy numbers beside each row are kernel output (§9.5).
+	bool bKernelSelection = false;
+	// True once a query resolved to a row and ran; ComputedLambda is the λ this result was
+	// computed at. The note slot describes the displayed result, so it reads this λ, not the
+	// slider's live value.
+	bool bHasResult = false;
+	float ComputedLambda = 1.0f;
+};
+
 // The inspection source is an abstraction: a baked asset OR a loaded scratch archive --
 // "the one genuine widget refactor". Every BankView-native pass (BuildAnalysisSample,
 // ComputeStructure, ComputeCorrespondence) reads a source through this uniform surface
@@ -138,8 +260,8 @@ struct FSuperFAISSMatchPairResult
 // FORCED READING: the design names the abstraction and its two
 // space-law placements (construction-time discharge for sample-scoped passes, runtime OR
 // for full-view passes) but not its concrete C++ shape. This is a value type the widget
-// resolves per slot (primary / second, extended to the
-// second-bank slot too -- "archive-vs-baked correspondence... exercised in slot A and in
+// resolves per slot (primary / comparison, extended to the
+// comparison-bank slot too -- "archive-vs-baked correspondence... exercised in slot A and in
 // slot B separately"): EITHER a TWeakObjectPtr to a registry asset (unowned -- the asset
 // registry itself keeps it alive, the existing pattern) OR a TStrongObjectPtr to a
 // transient USuperFAISSScratchBank the widget itself constructs via NewObject +
@@ -150,7 +272,7 @@ struct FSuperFAISSMatchPairResult
 // reading, since the design states the affordance exists beside the picker but not their
 // interaction): opening an archive clears that slot's asset-combo selection, and picking
 // an asset from the combo clears that slot's open archive (OnBankSelected() /
-// OnSecondBankSelected(), extended).
+// OnComparisonBankSelected(), extended).
 //
 // ASYMMETRY, stated ("your abstraction needs to account for
 // this asymmetry, not paper over it"): an asset carries NO tombstones (baked banks are
@@ -203,12 +325,12 @@ struct FSuperFAISSInspectionSource
 	TArray<uint32> GetTombstoneWords() const;
 };
 
-// A single archive slot's state -- the primary and second-bank slots each hold one of
+// A single archive slot's state -- the primary and comparison-bank slots each hold one of
 // these instead of four separately-declared, separately-reset members. Reset() is the
 // slot's whole reset contract: every field a slot needs to describe an opened archive
 // (or the absence of one) lives here, so a field added later is reset by construction
 // rather than by remembering to add it to both OnBankSelected() and
-// OnSecondBankSelected(). (The open-status line was previously left out of that
+// OnComparisonBankSelected(). (The open-status line was previously left out of that
 // hand-maintained reset list on both handlers -- this struct removes the list.)
 struct FSuperFAISSArchiveSlotState
 {
@@ -255,6 +377,15 @@ struct FSuperFAISSArchiveSlotState
 //   DecomposeHit, which sum exactly to the score (V2 plan section 6). Displayed
 //   per-channel cosines clamp to [-1, 1] (T-044 W2d: int8 quantization noise can
 //   push a shade past 1; the clamp is display-only and marked when it fires).
+//   V3.4 (plan §9): a result-count control (K, [1, kHardQueryKCap]) and a diversity
+//   slider (λ in [0, 1], default 1). Every query over-fetches K x kDiversityPoolMultiplier
+//   candidates and re-ranks them with SelectDiverseMMR; at λ = 1 the result is the plain
+//   ranking exactly, and below 1 each row also shows its relevance and redundancy. The
+//   queried row is never among its own results. Determinism tier (plan §12 dim 6: "within the
+//   tier its inputs carry"): PER-DEVICE. The redundancy term is cross-device exact on an Int8
+//   bank (the rows' own int8 images through ScoreXdPairSegmented), but relevance comes from
+//   the per-device query, so the selection and its display are per-device. Float32 banks
+//   diversify on rows lifted to int8, also per-device.
 // - Projection visualizer: PCA point cloud of the bank (2 components), computed on
 //   demand over a deterministic stride sample (N1: bounded, never silently
 //   exhaustive on a large bank). On channel banks the projection can be scoped to
@@ -269,7 +400,7 @@ struct FSuperFAISSArchiveSlotState
 //   (k's, lambda, the sample cap) come from USuperFAISSInspectorSettings and persist;
 //   query state (the probe text, which bank is selected) stays session-scoped exactly
 //   as today (V32-G2).
-// - View C (Correspondence), section 25.5 (slot 4): a second-bank slot alongside the
+// - View C (Correspondence), section 25.5 (slot 4): a comparison-bank slot alongside the
 //   primary, matching rows between two banks via matching.h's mutual-NN + CSLS. Every
 //   BankView-native pass -- including this one -- reads its bank(s) through
 //   FSuperFAISSInspectionSource (below), which generalizes "a registry asset" to
@@ -305,7 +436,7 @@ public:
 	// never inside the core entry itself.
 	void ProbeNovelty(const FString& Text);
 
-	// View C (Correspondence), section 25.5: the second-bank slot (section 25.3
+	// View C (Correspondence), section 25.5: the comparison-bank slot (section 25.3
 	// E-D1-1..4) + "Compute correspondence" trigger. Runs the SAME BuildAnalysisSample
 	// construction View A/B's baseline uses for the A-side sample (respecting the shared
 	// analysis scope), then MutualNearestMatches (matching.h, M3, sampled-A-verified-
@@ -313,7 +444,7 @@ public:
 	// called with the bank's own live Count so the "sample" is the identity — every live
 	// row, same channel-scope slicing, zero-copy only when the scope is the whole row).
 	// Compatibility (dims, metric — Quantization may differ, disclosed) is checked BEFORE
-	// any compute begins (the "second-bank compatibility rejection matrix", section 25.9
+	// any compute begins (the "comparison-bank compatibility rejection matrix", section 25.9
 	// dim 2) — a failure there sets a line-item CorrespondenceStatus and clears
 	// MatchPairResults to empty (the late-rejection UI contract, audit N-3), never leaving
 	// a stale pair list from an earlier valid pair rendering beside the rejection. State
@@ -321,6 +452,17 @@ public:
 	// CslsMargin against Settings->CslsMarginThreshold (matching.h's own contract: no
 	// verdict entry exists in MatchPair itself).
 	void ComputeCorrespondence();
+
+	// V3.4 plan §8: the drift panel's own trigger. Mirrors ComputeCorrespondence()'s shape
+	// exactly -- both refuse before any operator runs when their own precondition fails
+	// (§8.4: Int8-only, Metric::Dot refused), both run under
+	// SuperFAISSInspectorSlowTask's chunked, cancelable modal pass (§8.5), and both leave no
+	// partial result behind a refusal or a cancel. Reads GetPrimarySource() as "current" and
+	// GetComparisonSource() (§7) as "baseline" -- the same shared comparison slot
+	// Correspondence's own compute reads, never a drift-private copy. Populates DriftResult
+	// (below); the panel binds directly to it, exactly as the panel binds to
+	// MatchPairResults for Correspondence.
+	void ComputeDrift();
 
 	// The "Open scratch archive..." affordance. Reads
 	// Bytes as a scratch archive (core Load, reject-over-degrade -- "a bad blob leaves
@@ -335,17 +477,17 @@ public:
 	// Load call is not a bank-wide O(n) pass the way Structure/Novelty/Correspondence
 	// are, so it does not warrant SuperFAISSInspectorSlowTask's modal chunked treatment.
 	bool OpenScratchArchiveFromBytes(const TArray<uint8>& Bytes, const FString& DisplayName);
-	// The second-bank slot's mirror (temper W1: "archive-vs-baked correspondence...
+	// The comparison-bank slot's mirror (temper W1: "archive-vs-baked correspondence...
 	// exercised in slot A and in slot B separately" is explicitly in scope for 4b, not a
 	// per-pane follow-on the way the live channel-weighted query pane is).
-	bool OpenSecondScratchArchiveFromBytes(const TArray<uint8>& Bytes, const FString& DisplayName);
+	bool OpenComparisonScratchArchiveFromBytes(const TArray<uint8>& Bytes, const FString& DisplayName);
 	const FString& GetArchiveOpenStatus() const { return PrimaryArchive.OpenStatus; }
-	const FString& GetSecondArchiveOpenStatus() const { return SecondArchive.OpenStatus; }
+	const FString& GetComparisonArchiveOpenStatus() const { return ComparisonArchive.OpenStatus; }
 	// T-11 (SF34-007): the peeked geometry line for the slot's current archive (empty if
 	// the slot has never had a successful peek). See FSuperFAISSArchiveSlotState's own
 	// comment.
 	const FString& GetArchivePeekGeometry() const { return PrimaryArchive.PeekGeometry; }
-	const FString& GetSecondArchivePeekGeometry() const { return SecondArchive.PeekGeometry; }
+	const FString& GetComparisonArchivePeekGeometry() const { return ComparisonArchive.PeekGeometry; }
 
 	// SF34-002: the peek-gated open/replace/close control flow the "Open Archive..."
 	// button drives -- issues the PeekScratchArchive call for the geometry + archiveBytes
@@ -353,20 +495,29 @@ public:
 	// OpenScratchArchiveFromBytes for why the commit itself is unchanged). Peek runs FIRST,
 	// read-only: on a peek rejection (truncated/malformed/trailing-data-that-still-fails,
 	// etc.) the specific failure is surfaced via GetArchiveOpenStatus()/
-	// GetSecondArchiveOpenStatus() and NEITHER Open(Second)ScratchArchiveFromBytes nor any
+	// GetComparisonArchiveOpenStatus() and NEITHER Open(Comparison)ScratchArchiveFromBytes nor any
 	// state mutation ever runs -- the existing source is preserved by construction, not by a
 	// separate rollback path. On a successful peek, the geometry is published (T-11) and
-	// THEN the real commit runs through the existing, already-proven Open(Second)
+	// THEN the real commit runs through the existing, already-proven Open(Comparison)
 	// ScratchArchiveFromBytes (which performs its own full Load validation; a peek passing
 	// does not bypass it). Returns the commit's own result (false on a peek rejection too).
-	bool PeekAndOpenArchive(const TArray<uint8>& Bytes, const FString& DisplayName, bool bSecondSlot);
+	bool PeekAndOpenArchive(const TArray<uint8>& Bytes, const FString& DisplayName, bool bComparisonSlot);
 
 	// The resolved current inspection source per slot (test + future UI binding
 	// surface): Archive-kind when that slot's "Open scratch archive..." has succeeded
 	// and no asset re-selection has superseded it since; Asset-kind from the existing
 	// combo otherwise; None-kind if neither.
 	FSuperFAISSInspectionSource GetPrimarySource() const;
-	FSuperFAISSInspectionSource GetSecondSource() const;
+	FSuperFAISSInspectionSource GetComparisonSource() const;
+
+	// D-INSP-36 / plan §7.2: the shared identity block -- renders which two banks a
+	// displayed number actually came from (display name, live row count, dims, metric,
+	// quantization for each side). One implementation shared by Correspondence's picker
+	// (below) and, once built, Drift's panel -- the identity of "which two banks produced
+	// this number" is never a per-feature question. Static: it is a pure function of the
+	// two sources handed to it, not of this widget's own state.
+	static FString BuildComparisonIdentityBlock(const FSuperFAISSInspectionSource& PrimarySource,
+		const FSuperFAISSInspectionSource& ComparisonSource);
 
 	// Read-only accessors for View A/B state (test + future UI binding surface).
 	const TArray<FSuperFAISSStructureCluster>& GetStructureClusters() const { return StructureClusters; }
@@ -396,16 +547,54 @@ public:
 	const TArray<FSuperFAISSMatchPairResult>& GetMatchPairResults() const { return MatchPairResults; }
 	const FString& GetCorrespondenceStatus() const { return CorrespondenceStatus; }
 
+	// Read-only accessor for the drift panel's own state (test + UI binding surface, the
+	// same shape GetMatchPairResults() gives Correspondence).
+	const FSuperFAISSDriftResult& GetDriftResult() const { return DriftResult; }
+
+	// V3.4 plan §9.2: the query pane's result-count control. Default 12 (today's shipped
+	// behavior); bounded to [1, kHardQueryKCap] by the spin box, and clamped again at the one
+	// point RunQuery reads it (the over-fetch construction), whichever writer set it.
+	// kHardQueryKCap is a fixed, non-user-editable ceiling -- the "worst reachable K" §10's
+	// cost measurement runs against.
+	static constexpr int32 kDefaultQueryK = 12;
+	static constexpr int32 kHardQueryKCap = 100;
+	// V3.4 plan §9.3 (D-INSP-35): the candidate pool is K x this fixed multiplier, read from
+	// the same query the relevance-only path builds.
+	static constexpr int32 kDiversityPoolMultiplier = 4;
+
+	// V3.4 plan §9: read-only accessors for the diversity slider's state (UI binding + test
+	// surface, the same shape GetDriftResult() gives Drift).
+	const FSuperFAISSDiversityResult& GetDiversityResult() const { return DiversityResult; }
+	int32 GetQueryK() const { return QueryK; }
+	float GetDiversityLambda() const { return DiversityLambda; }
+	// The one diversity note slot (§9.4/§9.5a/§6.2): the mid-selection fallback note when the
+	// last query fell back, else a whole-panel refusal line when diversity is unavailable,
+	// else §9.4's identity statement while the slider sits at 1.0, else empty.
+	FString GetDiversityNoteText() const;
+
+	// The three fixed diversity strings (§9.4, §9.5a, §6.2), exposed so the panel copy and the
+	// test surface read one definition.
+	static const TCHAR* DiversityIdentityNote();
+	static const TCHAR* DiversityMidSelectionRefusalNote();
+	static const TCHAR* DiversityL2ZeroScaleRefusalNote();
+
 	// T-06/T-815: the pre-run cost disclosure CHANGELOG.md's [3.2.0] entry claims
 	// ("Disclosed as the HEAVY pass in the set -- cost scales with both banks' sizes --
 	// before it runs"). Read-only, non-mutating, callable at any time -- in particular
 	// BEFORE ComputeCorrespondence() is ever invoked. Reports on whatever
-	// GetPrimarySource()/GetSecondSource() currently resolve to, independent of the
-	// second-bank compatibility check ComputeCorrespondence() performs -- this
+	// GetPrimarySource()/GetComparisonSource() currently resolve to, independent of the
+	// comparison-bank compatibility check ComputeCorrespondence() performs -- this
 	// disclosure is about cost, not validity, and the changelog's own claim is
 	// unconditional. Empty when either slot has no resolved source; otherwise a
 	// non-empty string containing "HEAVY" and both sides' live counts.
 	FString GetPendingCorrespondenceDisclosure() const;
+
+	// §8.5: the drift panel's own pre-run cost disclosure, mirroring
+	// GetPendingCorrespondenceDisclosure()'s wording exactly (same population-sized-cost
+	// shape as Correspondence's match pass, §8.5) -- a distinct accessor, not a shared
+	// call, the same "mirrors ... exactly, a new counter" relationship
+	// DriftChunksProcessedForTest has to CorrespondenceChunksProcessedForTest below.
+	FString GetPendingDriftDisclosure() const;
 
 	// The View A determinism-tier disclosure copy (section 25.5), exposed so the panel
 	// copy assertion (section 25.9 dim 7 doc cell) does not hand-duplicate the string.
@@ -429,9 +618,9 @@ public:
 	// in-memory NewObject<USuperFAISSVectorBank>()::InitFromSource() bank behaves
 	// identically to a registry-discovered one from this point on.
 	void SetBankForTest(USuperFAISSVectorBank* Bank);
-	// Test seam (slot 4): assigns the SECOND bank directly, the same bypass
-	// SetBankForTest gives the primary — mirrors OnSecondBankSelected()'s reset.
-	void SetSecondBankForTest(USuperFAISSVectorBank* Bank);
+	// Test seam (slot 4): assigns the COMPARISON bank directly, the same bypass
+	// SetBankForTest gives the primary — mirrors OnComparisonBankSelected()'s reset.
+	void SetComparisonBankForTest(USuperFAISSVectorBank* Bank);
 	// Test seam: selects the projection/analysis scope by name ("(whole row)" or a
 	// channel name), mirroring the combo box's OnSelectionChanged handler.
 	void SetAnalysisScopeForTest(const FString& ScopeName);
@@ -449,6 +638,17 @@ public:
 	int32 StructureChunksProcessedForTest = 0;
 	int32 NoveltyBaselineChunksProcessedForTest = 0;
 	int32 CorrespondenceChunksProcessedForTest = 0;
+	// V3.4 plan §8.5/§8.9: mirrors CorrespondenceChunksProcessedForTest exactly -- a new
+	// counter for a new pass, not a shared one (drift and correspondence are independent
+	// compute triggers that can interleave, dim 1's own cross-feature lifetime cell).
+	int32 DriftChunksProcessedForTest = 0;
+
+	// V3.4 plan §8.9: the drift panel's own test seam -- runs ComputeDrift() (the real
+	// panel path) and returns the DISPLAYED set (§8.9's own "not the operator set"
+	// requirement) as a field-for-field copy of DriftResult, in the exact shape Gate 1's
+	// red suite is authored against (Fixtures/SuperFAISSDriftDiversityTestContracts.h).
+	// Non-const: driving a compute is a mutation, exactly like ComputeCorrespondence().
+	FSuperFAISSDriftResultForTest GetDriftResultForTest();
 
 	// Test seam (slot 4b): direct access to the source-generalized sample construction --
 	// the crux space-law mechanism -- independent of whether every public Compute*
@@ -490,6 +690,27 @@ public:
 	// but unlike the slider, this seam does not clamp Weight to [0, 2], so a caller can drive a
 	// value no user's slider drag can produce.
 	void SetChannelWeightForTest(int32 ChannelIndex, float Weight);
+
+	// V3.4 plan §9.7: the diversity test seams. RunQueryForTest is a thin pass-through to the
+	// private RunQuery (the real query path, §11.2's G-1 pin).
+	void RunQueryForTest(const FString& QueryText) { RunQuery(QueryText); }
+	// Writes the widget's K member directly, WITHOUT clamping (§9.7): the bound is enforced
+	// once, at the over-fetch construction RunQuery performs, and this seam's job is to reach
+	// that boundary with a value no spin-box drag can produce.
+	void SetQueryKForTest(int32 K) { QueryK = K; }
+	// Writes λ directly (no clamp -- the slider bounds itself to [0, 1]) and, unlike the
+	// slider, does NOT re-run the last query: tests drive RunQueryForTest explicitly, so a
+	// seam write never consumes a pending SetDiversitySegmentOverrideForTest.
+	void SetDiversityLambdaForTest(float Lambda) { DiversityLambda = Lambda; }
+	// The last query's displayed selection, in §9.7's contract shape.
+	FSuperFAISSMMRSelectionForTest GetLastMMRSelectionForTest() const;
+	// §9.7 (D-SLM1837): replaces the resolved segment list SelectDiverseMMR's redundancy call
+	// receives, for the NEXT RunQuery call only, then resets to empty (one-shot, consumed --
+	// DebugCancelAfterChunks's convention). Empty (the default) means no override.
+	void SetDiversitySegmentOverrideForTest(const TArray<superfaiss::QuerySegment>& Segments)
+	{
+		DiversitySegmentOverrideForTest = Segments;
+	}
 #endif
 
 private:
@@ -512,7 +733,7 @@ private:
 	// criterion names. A cancelled dialog or an unreadable file is a silent no-op (no
 	// dialog result to surface as a line-item status; the file dialog's own UI already
 	// communicated cancellation to the user).
-	FReply OnOpenArchiveClicked(bool bSecondSlot);
+	FReply OnOpenArchiveClicked(bool bComparisonSlot);
 
 	// SF34-003: the two source-generalized query primitives RunQuery/ProbeNovelty share.
 	// USuperFAISSSubsystem's MakeCentroidQuery/QuerySync are asset-typed with no drop-in
@@ -528,32 +749,32 @@ private:
 	bool QuerySource(const FSuperFAISSInspectionSource& Source, TConstArrayView<float> UnpaddedQuery,
 		const FSuperFAISSQueryArgs& Args, TArray<FSuperFAISSHit>& OutHits) const;
 
-	// View C (Correspondence), section 25.3 E-D1-1..4: the second bank slot — a second
+	// View C (Correspondence), section 25.3 E-D1-1..4: the comparison bank slot — a second
 	// SComboBox over the SAME asset-registry list as the primary, held as
 	// TWeakObjectPtr, resolved at compute time (the primary's own pattern; E-D1-1). Not
 	// asset state, not settings state — transient widget state (E-D1-2), reset by
-	// OnSecondBankSelected() exactly as the primary resets by OnBankSelected() (the
+	// OnComparisonBankSelected() exactly as the primary resets by OnBankSelected() (the
 	// V32-G2 discipline extended to the pair, E-D1-3's "primary swap while a pair is
 	// loaded resets correspondence state").
-	void RefreshSecondBankList();
-	USuperFAISSVectorBank* GetSelectedSecondBank() const;
-	// A second-bank change is a leg of the section 25.9 dim 1 reset matrix
-	// ("second-bank change") — calls InvalidateAnalysisCaches(), exactly OnBankSelected()'s
+	void RefreshComparisonBankList();
+	USuperFAISSVectorBank* GetSelectedComparisonBank() const;
+	// A comparison-bank change is a leg of the section 25.9 dim 1 reset matrix
+	// ("comparison-bank change") — calls InvalidateAnalysisCaches(), exactly OnBankSelected()'s
 	// own call, extending the V32-G2 discipline to the pair.
-	void OnSecondBankSelected();
+	void OnComparisonBankSelected();
 
-	// View C: the second-bank compatibility rejection matrix (section 25.9 dim 2) —
+	// View C: the comparison-bank compatibility rejection matrix (section 25.9 dim 2) —
 	// Dims and Metric must match (E-D1-3); Quantization may differ (disclosed, not
 	// rejected). Returns true and leaves OutReason untouched iff A/B are compatible;
 	// returns false and sets OutReason to the exact line-item status text otherwise.
-	// A null B (no second bank selected) and a B that fails IsValid() are their own
-	// named reasons — the "no second bank selected" / "second bank: invalid asset"
+	// A null B (no comparison bank selected) and a B that fails IsValid() are their own
+	// named reasons — the "no comparison bank selected" / "comparison bank: invalid asset"
 	// idioms extending RunQuery's/ComputeStructure's own "no valid bank selected"
-	// idiom to the second-bank slot (a forced reading: section 25.9's rejection matrix
+	// idiom to the comparison-bank slot (a forced reading: section 25.9's rejection matrix
 	// names "invalid asset" but not this exact split; the design choice mirrors how
 	// section 25.5 already distinguishes "no bank selected" (RunQuery/ComputeStructure)
 	// from a selected-but-invalid one elsewhere in this class).
-	bool CheckSecondBankCompatible(const USuperFAISSVectorBank& A, const USuperFAISSVectorBank* B,
+	bool CheckComparisonBankCompatible(const USuperFAISSVectorBank& A, const USuperFAISSVectorBank* B,
 		FString& OutReason) const;
 
 	// Slot 4b: the SAME compatibility rejection matrix, generalized to either inspection
@@ -563,7 +784,7 @@ private:
 	// ComputeCorrespondence() calls now; the asset-only overload above is left in place,
 	// unused by any call site, so slot 3/4's own closed-green behavior is never disturbed
 	// by this round's edit.
-	bool CheckSecondBankCompatible(const FSuperFAISSInspectionSource& A,
+	bool CheckComparisonBankCompatible(const FSuperFAISSInspectionSource& A,
 		const FSuperFAISSInspectionSource& B, FString& OutReason) const;
 
 	// SF34-004: the single row-label resolver shared by GetScatterPointLabel (tooltip) and
@@ -609,7 +830,7 @@ private:
 	// (structure + baseline + matches), one rule for every panel" — matches names
 	// Correspondence explicitly): clears the Structure, Novelty, AND (slot 4)
 	// Correspondence caches together — called by OnBankSelected(), by an analysis-scope
-	// change, and (slot 4, the NEW leg) by OnSecondBankSelected(). NOT called on a
+	// change, and (slot 4, the NEW leg) by OnComparisonBankSelected(). NOT called on a
 	// settings (analysis-parameter) change: no widget event exists to fire it from
 	// (UDeveloperSettings has no per-instance change notification this class subscribes
 	// to). Structure never caches across calls (ComputeStructure recomputes fully every
@@ -720,15 +941,15 @@ private:
 	// geometry, and open status together behind one Reset().
 	FSuperFAISSArchiveSlotState PrimaryArchive;
 
-	// View C (Correspondence) second-bank slot (section 25.3 E-D1-1): the SAME
+	// View C (Correspondence) comparison-bank slot (section 25.3 E-D1-1): the SAME
 	// asset-registry-enumeration pattern as the primary picker, held separately —
 	// transient widget state (E-D1-2), never persisted.
-	TArray<TSharedPtr<FString>> SecondBankNames;
-	TArray<TWeakObjectPtr<USuperFAISSVectorBank>> SecondBankAssets;
-	TSharedPtr<FString> SelectedSecondBankName;
-	// Slot 4b, second-bank mirror (temper W1): the same archive/asset mutual exclusion as
+	TArray<TSharedPtr<FString>> ComparisonBankNames;
+	TArray<TWeakObjectPtr<USuperFAISSVectorBank>> ComparisonBankAssets;
+	TSharedPtr<FString> SelectedComparisonBankName;
+	// Slot 4b, comparison-bank mirror (temper W1): the same archive/asset mutual exclusion as
 	// the primary slot, and the same FSuperFAISSArchiveSlotState grouping.
-	FSuperFAISSArchiveSlotState SecondArchive;
+	FSuperFAISSArchiveSlotState ComparisonArchive;
 
 	TArray<TSharedPtr<FString>> ResultLines;
 	TSharedPtr<class SListView<TSharedPtr<FString>>> ResultList;
@@ -847,6 +1068,43 @@ private:
 	// section 25.5). Rebuilt alongside MatchPairResults; not analysis state.
 	TArray<TSharedPtr<FString>> MatchPairDisplayLines;
 	TSharedPtr<class SListView<TSharedPtr<FString>>> MatchPairList;
+
+	// V3.4 plan §8: the drift panel's own displayed state, populated by ComputeDrift() and
+	// cleared by InvalidateAnalysisCaches() on the same three triggers Correspondence's own
+	// state clears on (primary re-select, analysis-scope change, comparison-bank change,
+	// §8.6). Never cached across ComputeDrift() calls -- rebuilt fully every trigger, the
+	// same posture as MatchPairResults/StructureClusters, not the Novelty-baseline posture.
+	FSuperFAISSDriftResult DriftResult;
+
+	// V3.4 plan §9: the diversity slider's query state. Session-scoped widget members, the
+	// same class of state as ChannelWeights (§9.2: "query state ... stays session-scoped"),
+	// never USuperFAISSInspectorSettings fields.
+	int32 QueryK = kDefaultQueryK;
+	float DiversityLambda = 1.0f;
+	FSuperFAISSDiversityResult DiversityResult;
+	// The text of the last query that resolved to a row, so a λ or K change can re-run it
+	// (the displayed result always matches the controls). Cleared when the primary source
+	// changes, since the text names a row of the previous source.
+	FString LastQueryText;
+	// The λ slider's and K control's shared change handler: store the value, then re-run the
+	// last query (warm cost at most tens of milliseconds, D-SLM7842).
+	void OnDiversityControlChanged();
+
+	// V3.4 plan §9.1a: Metric::L2's bank-intrinsic scale L = sqrt(Spread(current)), computed
+	// over the primary source's live rows (SpreadCrossDevice, Reduce::Mean -- the same
+	// operator and reduction drift's own denominator uses; on a Float32 bank the same mean
+	// squared distance to the centroid, computed over the float rows) and cached per primary
+	// source.
+	// Cleared by InvalidateAnalysisCaches(), so a primary re-select or archive open
+	// recomputes it; an analysis-scope or comparison change clears it too (the same coarse
+	// rule) but changes nothing it depends on. Whole-row always: never reads the scope combo.
+	bool bL2ScaleCached = false;
+	float CachedL2Scale = 0.0f;
+	float GetL2ScaleForPrimary(const FSuperFAISSInspectionSource& Source);
+
+#if WITH_DEV_AUTOMATION_TESTS
+	TArray<superfaiss::QuerySegment> DiversitySegmentOverrideForTest;
+#endif
 
 	static constexpr int32 PcaIterations = 24;
 	// Section 25.5: the verdict carries a low-confidence marking below this effective

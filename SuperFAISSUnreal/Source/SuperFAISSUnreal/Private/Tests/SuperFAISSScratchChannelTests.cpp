@@ -146,6 +146,15 @@ bool FSuperFAISSScratchChannelInitQueryTest::RunTest(const FString& Parameters)
 	if (Hits.Num() == 4)
 	{
 		TestEqual(TEXT("top hit is row 0"), Hits[0].Index, 0);
+		// Genuinely inexact -- checked by construction and by execution. A hand analysis of
+		// this one-hot fixture predicts bit-exact 1.0f/0.0f (each row's identity subvector is
+		// a single 1.0 with the rest exactly 0.0, so the per-channel dot and invNorm are each
+		// exact in isolation); asserting that literally, this cell went red under the real
+		// engine build even though the printed score reads 1.000000 -- the segmented-scoring
+		// kernel's own float32 combine (DenseSegmentedRowScore's partial *= invNorm, weight *
+		// partial) introduces a sub-%f-precision rounding step the hand derivation did not
+		// model. 1e-4f is this file's own pre-existing tolerance for the same one-hot-fixture
+		// shape and comfortably covers the measured (few-ULP) noise.
 		TestTrue(TEXT("top hit scores exact cosine 1.0"),
 			FMath::IsNearlyEqual(Hits[0].Score, 1.0f, 1e-4f));
 		for (int32 i = 1; i < 4; ++i)
@@ -318,6 +327,13 @@ bool FSuperFAISSScratchChannelFeatOracleTest::RunTest(const FString& Parameters)
 		{
 			TestEqual(FString::Printf(TEXT("rank %d matches independent brute force"), i),
 				Hits[i].Index, ExpectedOrder[i]);
+			// Genuinely inexact: SubRangeCosine is DELIBERATELY not a recode of the
+			// scratch/core scoring path (file header above) -- it is a double-precision
+			// dot/(|a|*|b|) over raw pre-append floats, while the bank's own score comes
+			// from a float32 kernel using a precomputed per-row invNorm (bake.cpp
+			// ComputeChannelInverseNorms) applied to only the row's side. Two independent
+			// algorithms over real (non-trivial) PRNG floats, not expected to agree past
+			// float32 precision.
 			TestTrue(FString::Printf(TEXT("rank %d score matches independent brute force"), i),
 				FMath::IsNearlyEqual(Hits[i].Score,
 					static_cast<float>(ExpectedScore[ExpectedOrder[i]]), 1e-3f));

@@ -131,6 +131,10 @@ bool FSuperFAISSDequantizeTest::RunTest(const FString& Parameters)
 				MaxAbs = FMath::Max(MaxAbs, FMath::Abs(Rows[R * Dims + D]));
 			}
 			const float Step = MaxAbs / 127.0f;
+			// Genuinely inexact: int8 dequantization rounds each component to the nearest
+			// multiple of Step (row-scale/127), so a component up to half a step off its
+			// source is by construction, not error. Bound is one full step (not half) plus
+			// KINDA_SMALL_NUMBER slop for the scale/Step division's own float rounding.
 			for (int32 D = 0; D < Dims; ++D)
 			{
 				TestTrue(FString::Printf(TEXT("row %d dim %d within quant step"), R, D),
