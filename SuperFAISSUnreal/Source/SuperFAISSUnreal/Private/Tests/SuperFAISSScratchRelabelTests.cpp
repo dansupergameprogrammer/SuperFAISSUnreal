@@ -144,6 +144,10 @@ bool FSuperFAISSScratchRelabelGateTest::RunTest(const FString& Parameters)
 	{
 		TestEqual(FString::Printf(TEXT("rank %d matches brute force over new sub-range"), i),
 			Hits[i].Index, ExpectedOrder[i]);
+		// Genuinely inexact: SubRangeCosine (file header above) is deliberately NOT a
+		// recode of the scratch scoring path -- double-precision dot/(|a|*|b|) over raw
+		// pre-append floats vs. the bank's float32 kernel with a precomputed per-row
+		// invNorm. Two independent algorithms over real PRNG floats.
 		TestTrue(FString::Printf(TEXT("rank %d score matches brute force"), i),
 			FMath::IsNearlyEqual(Hits[i].Score,
 				static_cast<float>(ExpectedScore[ExpectedOrder[i]]), 1e-3f));
@@ -209,8 +213,14 @@ bool FSuperFAISSScratchRelabelParityTest::RunTest(const FString& Parameters)
 	{
 		TestEqual(FString::Printf(TEXT("relabeled==fresh rank %d index"), i),
 			RelabeledHits[i].Index, FreshHits[i].Index);
+		// Bit-exact, not merely close: scratch.cpp's Relabel() re-derives ChannelInvNorms_
+		// via the SAME ComputeChannelInverseNorms call a fresh Create+Append/Load runs (its
+		// own comment calls this "the parity oracle"), over rows byte-copied (never
+		// re-quantized) from the old arena. Relabeled and Fresh feed that function the
+		// identical bytes and the identical new table, so the two banks' scores are the
+		// same deterministic computation run twice, not two independent algorithms.
 		TestTrue(FString::Printf(TEXT("relabeled==fresh rank %d score"), i),
-			FMath::IsNearlyEqual(RelabeledHits[i].Score, FreshHits[i].Score, 1e-4f));
+			RelabeledHits[i].Score == FreshHits[i].Score);
 	}
 
 	return true;

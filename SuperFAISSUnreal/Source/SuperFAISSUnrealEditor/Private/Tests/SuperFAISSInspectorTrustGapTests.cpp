@@ -61,7 +61,7 @@ namespace
 // SF34-002 (Coverage Model dim 2/5) -- the "Open scratch archive..." control flow on BOTH
 // slots: open / replace / reject-on-bad-bytes / preserve-current-source-on-a-failed-open.
 // The handler primitives themselves (OpenScratchArchiveFromBytes/
-// OpenSecondScratchArchiveFromBytes) are already real per the roadmap grounding (T-01's own
+// OpenComparisonScratchArchiveFromBytes) are already real per the roadmap grounding (T-01's own
 // characterization: "byte handlers exist, no visible affordance") -- these cells pin the
 // CONTROL-FLOW CONTRACT the plan's acceptance criteria state explicitly ("Both slots
 // open/replace/reject/close from visible UI; a failed open preserves the current source"),
@@ -108,18 +108,18 @@ bool FSuperFAISSArchiveOpenReplaceRejectPreserveTest::RunTest(const FString& Par
 		static_cast<int32>(Inspector->GetPrimarySource().Kind),
 		static_cast<int32>(FSuperFAISSInspectionSource::EKind::Archive));
 
-	// The second-bank slot mirrors the same contract, independently.
+	// The comparison-bank slot mirrors the same contract, independently.
 	TArray<uint8> ArchiveC;
 	TestTrue(TEXT("(setup) archive C bakes"), BuildArchiveBytes(*this, 8, 4, 0xC003, ArchiveC));
-	TestTrue(TEXT("second slot: a valid archive opens"),
-		Inspector->OpenSecondScratchArchiveFromBytes(ArchiveC, TEXT("C.bin")));
-	TestEqual(TEXT("second slot: second source is Archive-kind"),
-		static_cast<int32>(Inspector->GetSecondSource().Kind),
+	TestTrue(TEXT("comparison slot: a valid archive opens"),
+		Inspector->OpenComparisonScratchArchiveFromBytes(ArchiveC, TEXT("C.bin")));
+	TestEqual(TEXT("comparison slot: comparison source is Archive-kind"),
+		static_cast<int32>(Inspector->GetComparisonSource().Kind),
 		static_cast<int32>(FSuperFAISSInspectionSource::EKind::Archive));
-	TestFalse(TEXT("second slot: a malformed buffer fails to open"),
-		Inspector->OpenSecondScratchArchiveFromBytes(Malformed, TEXT("bad2.bin")));
-	TestEqual(TEXT("second slot: the current source (archive C) survives a failed open unchanged"),
-		Inspector->GetSecondSource().GetLiveCount(), 8);
+	TestFalse(TEXT("comparison slot: a malformed buffer fails to open"),
+		Inspector->OpenComparisonScratchArchiveFromBytes(Malformed, TEXT("bad2.bin")));
+	TestEqual(TEXT("comparison slot: the current source (archive C) survives a failed open unchanged"),
+		Inspector->GetComparisonSource().GetLiveCount(), 8);
 
 	return true;
 }
@@ -220,7 +220,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSuperFAISSClaimsVsCodeCapabilityMatrixTest::RunTest(const FString& Parameters)
 {
-	// Capability: "Open scratch archive..." exists on both the primary AND second-bank
+	// Capability: "Open scratch archive..." exists on both the primary AND comparison-bank
 	// slots (the 3.2.0 changelog's own claim, G-13 -- true today at the handler level, this
 	// matrix cell keeps it proven as the UI affordance lands on top).
 	{
@@ -229,8 +229,8 @@ bool FSuperFAISSClaimsVsCodeCapabilityMatrixTest::RunTest(const FString& Paramet
 		TestTrue(TEXT("(setup) capability-matrix archive bakes"), BuildArchiveBytes(*this, 5, 4, 0xF006, Bytes));
 		TestTrue(TEXT("capability: primary slot can open a scratch archive"),
 			Inspector->OpenScratchArchiveFromBytes(Bytes, TEXT("cap.bin")));
-		TestTrue(TEXT("capability: second slot can open a scratch archive independently"),
-			Inspector->OpenSecondScratchArchiveFromBytes(Bytes, TEXT("cap2.bin")));
+		TestTrue(TEXT("capability: comparison slot can open a scratch archive independently"),
+			Inspector->OpenComparisonScratchArchiveFromBytes(Bytes, TEXT("cap2.bin")));
 	}
 
 	// Capability: Novelty/Query analysis works on either source kind (SF34-003's own

@@ -8,12 +8,12 @@
 //     CHANGELOG's own claim names a pre-run disclosure. The seam it needed,
 //     GetPendingCorrespondenceDisclosure(), now exists in the shipped tree (built under T-815)
 //     and the cell below asserts against it directly -- CorrespondenceHeavyPassDisclosure
-//   - T-11's uncalled public accessor (GetArchivePeekGeometry/GetSecondArchivePeekGeometry) --
+//   - T-11's uncalled public accessor (GetArchivePeekGeometry/GetComparisonArchivePeekGeometry) --
 //     ArchivePeekGeometryDisclosure
 //   - the Novelty-on-tombstoned-archive composition cell the audit's C2 finding names --
 //     TutorialArchiveNoveltyTombstoneComposition
-//   - the second slot's untested archive legs (channel-scope, correspondence) --
-//     TutorialSecondSlotArchiveChannelScopeParity, TutorialSecondSlotArchiveCorrespondenceParity
+//   - the comparison slot's untested archive legs (channel-scope, correspondence) --
+//     TutorialComparisonSlotArchiveChannelScopeParity, TutorialComparisonSlotArchiveCorrespondenceParity
 //   - T-10's tooltip half (the doc-URL half has no existing surface at all and is routed
 //     separately in the test-design record) -- CslsMarginThresholdTooltipCompleteness
 //
@@ -105,15 +105,15 @@ namespace
 	// SuperFAISSInspectorTrustGapTests.cpp's own BuildArchiveBytes, which is likewise not
 	// shared with the oracle file).
 	bool OpenTutorialArchive(FAutomationTestBase& Test, SSuperFAISSBankInspector& Inspector,
-		const FString& BankName, const TArray<int32>& RowsToTombstone, bool bSecondSlot)
+		const FString& BankName, const TArray<int32>& RowsToTombstone, bool bComparisonSlot)
 	{
 		TArray<uint8> Bytes;
 		if (!BakeAsArchiveBytes(Test, BankName, RowsToTombstone, Bytes))
 		{
 			return false;
 		}
-		const bool bOpened = bSecondSlot
-			? Inspector.OpenSecondScratchArchiveFromBytes(Bytes, BankName + TEXT("-archive"))
+		const bool bOpened = bComparisonSlot
+			? Inspector.OpenComparisonScratchArchiveFromBytes(Bytes, BankName + TEXT("-archive"))
 			: Inspector.OpenScratchArchiveFromBytes(Bytes, BankName + TEXT("-archive"));
 		Test.TestTrue(FString::Printf(TEXT("tutorial bank '%s' archive opens"), *BankName), bOpened);
 		return bOpened;
@@ -233,7 +233,7 @@ bool FSuperFAISSCorrespondenceHeavyPassDisclosureTest::RunTest(const FString& Pa
 	TestTrue(TEXT("T-06: disclosure is empty when neither slot resolves a source"),
 		Inspector->GetPendingCorrespondenceDisclosure().IsEmpty());
 
-	// Negative control 2: only the primary slot resolves -- the second slot's EKind::None
+	// Negative control 2: only the primary slot resolves -- the comparison slot's EKind::None
 	// must still suppress the disclosure entirely (a HEAVY pass with only one side selected
 	// cannot report a cost, so it must not).
 	Inspector->SetBankForTest(Primary);
@@ -249,7 +249,7 @@ bool FSuperFAISSCorrespondenceHeavyPassDisclosureTest::RunTest(const FString& Pa
 	// ("HEAVY pass -- cost scales with both banks' sizes (%d live x %d live)") is reproduced
 	// here as a full-string oracle rather than a substring check, so the cell fails if either
 	// count drifts, not merely if the HEAVY token disappears.
-	Inspector->SetSecondBankForTest(Secondary);
+	Inspector->SetComparisonBankForTest(Secondary);
 	const FString Disclosure = Inspector->GetPendingCorrespondenceDisclosure();
 	TestEqual(TEXT("T-06/T-815: pre-run disclosure names the HEAVY pass and both banks' live "
 		"counts, read strictly before any ComputeCorrespondence() call"),
@@ -261,7 +261,7 @@ bool FSuperFAISSCorrespondenceHeavyPassDisclosureTest::RunTest(const FString& Pa
 
 // ===========================================================================
 // T-11's uncalled public accessor (a code review found "T-11/C1's UI disclosure string is
-// untested despite an existing public seam"). GetArchivePeekGeometry()/GetSecondArchivePeekGeometry()
+// untested despite an existing public seam"). GetArchivePeekGeometry()/GetComparisonArchivePeekGeometry()
 // are already real, already public, and called by zero tests -- the cheapest fix in the whole
 // audit, an assertion away rather than a seam away. Oracle: the tutorial Primary bank is 22
 // rows x 8 dims, Cosine, Float32, 2 channels (the sidecar's own header rule,
@@ -307,14 +307,14 @@ bool FSuperFAISSArchivePeekGeometryDisclosureTest::RunTest(const FString& Parame
 	TestTrue(TEXT("T-11: trailing-data disclosure appears in the geometry line"),
 		TrailerGeometry.Contains(TEXT("trailing")));
 
-	// The second slot's own copy of the same public seam, independently.
+	// The comparison slot's own copy of the same public seam, independently.
 	TArray<uint8> SecondaryBytes;
 	if (!BakeAsArchiveBytes(*this, TEXT("Secondary"), {}, SecondaryBytes)) { return true; }
-	TestTrue(TEXT("(setup) secondary archive opens on the second slot"),
-		Inspector->OpenSecondScratchArchiveFromBytes(SecondaryBytes, TEXT("secondary.bin")));
-	const FString SecondGeometry = Inspector->GetSecondArchivePeekGeometry();
-	TestTrue(TEXT("T-11: second slot's peeked geometry reports its own real row/dim count (6 x 8)"),
-		SecondGeometry.Contains(TEXT("6 x 8")));
+	TestTrue(TEXT("(setup) secondary archive opens on the comparison slot"),
+		Inspector->OpenComparisonScratchArchiveFromBytes(SecondaryBytes, TEXT("secondary.bin")));
+	const FString ComparisonGeometry = Inspector->GetComparisonArchivePeekGeometry();
+	TestTrue(TEXT("T-11: comparison slot's peeked geometry reports its own real row/dim count (6 x 8)"),
+		ComparisonGeometry.Contains(TEXT("6 x 8")));
 
 	return true;
 }
@@ -340,7 +340,7 @@ bool FSuperFAISSTutorialArchiveNoveltyTombstoneCompositionTest::RunTest(const FS
 	// Untombstoned archive: row 13's only exact duplicate (tag (3,3)) is row 14, live -> Duplicate.
 	{
 		TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
-		if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {}, /*bSecondSlot*/ false))
+		if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {}, /*bComparisonSlot*/ false))
 		{
 			return true;
 		}
@@ -358,7 +358,7 @@ bool FSuperFAISSTutorialArchiveNoveltyTombstoneCompositionTest::RunTest(const FS
 	// for Novelty until this cell.
 	{
 		TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
-		if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {14}, /*bSecondSlot*/ false))
+		if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {14}, /*bComparisonSlot*/ false))
 		{
 			return true;
 		}
@@ -373,21 +373,21 @@ bool FSuperFAISSTutorialArchiveNoveltyTombstoneCompositionTest::RunTest(const FS
 }
 
 // ===========================================================================
-// The second slot's untested archive legs (a coverage audit found "every oracle-gated archive test
-// opens the archive on the primary slot only... the second slot's archive-sourced Novelty,
+// The comparison slot's untested archive legs (a coverage audit found "every oracle-gated archive test
+// opens the archive on the primary slot only... the comparison slot's archive-sourced Novelty,
 // channel-scope, and correspondence-leg cells are covered only at the reachability level").
-// Novelty has no second-slot entry point at all (ProbeNovelty always reads
+// Novelty has no comparison-slot entry point at all (ProbeNovelty always reads
 // GetPrimarySource() -- confirmed at source in SSuperFAISSBankInspector.cpp; there is no
-// second-bank probe capability to test), so the two second-slot cells this round closes are
-// channel-scope and the correspondence leg, both of which DO have a second-slot code path.
+// comparison-bank probe capability to test), so the two comparison-slot cells this round closes are
+// channel-scope and the correspondence leg, both of which DO have a comparison-slot code path.
 // ===========================================================================
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSuperFAISSTutorialSecondSlotArchiveChannelScopeParityTest,
-	"SuperFAISS.D.TutorialSecondSlotArchiveChannelScopeParity",
+	FSuperFAISSTutorialComparisonSlotArchiveChannelScopeParityTest,
+	"SuperFAISS.D.TutorialComparisonSlotArchiveChannelScopeParity",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSuperFAISSTutorialSecondSlotArchiveChannelScopeParityTest::RunTest(const FString& Parameters)
+bool FSuperFAISSTutorialComparisonSlotArchiveChannelScopeParityTest::RunTest(const FString& Parameters)
 {
 	using namespace superfaiss;
 
@@ -395,29 +395,29 @@ bool FSuperFAISSTutorialSecondSlotArchiveChannelScopeParityTest::RunTest(const F
 	// A channel-carrying ASSET on the PRIMARY slot first -- the projection-scope combo
 	// (ProjectionScopes/SetAnalysisScopeForTest's match set) is populated by whichever source
 	// first offers channels (the sibling primary-slot tests' own documented reasoning), and the
-	// second slot never touches this state at all
-	// (SuperFAISS.D.SecondSlotArchiveOpenChannelStateUnchanged) -- opening the second-slot
+	// comparison slot never touches this state at all
+	// (SuperFAISS.D.ComparisonSlotArchiveOpenChannelStateUnchanged) -- opening the comparison-slot
 	// archive alone, with no asset ever selected, leaves ProjectionScopes empty and
 	// SetAnalysisScopeForTest below would silently no-op.
 	USuperFAISSVectorBank* AssetBank = BakeAsAsset(*this, TEXT("Primary"));
 	if (AssetBank == nullptr) { return true; }
 	Inspector->SetBankForTest(AssetBank);
-	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {}, /*bSecondSlot*/ true))
+	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {}, /*bComparisonSlot*/ true))
 	{
 		return true;
 	}
 	Inspector->SetAnalysisScopeForTest(TEXT("chanA"));
-	const FSuperFAISSInspectionSource SecondSource = Inspector->GetSecondSource();
-	TestEqual(TEXT("(setup) second source resolves to Archive kind after opening"),
-		static_cast<int32>(SecondSource.Kind), static_cast<int32>(FSuperFAISSInspectionSource::EKind::Archive));
+	const FSuperFAISSInspectionSource ComparisonSource = Inspector->GetComparisonSource();
+	TestEqual(TEXT("(setup) comparison source resolves to Archive kind after opening"),
+		static_cast<int32>(ComparisonSource.Kind), static_cast<int32>(FSuperFAISSInspectionSource::EKind::Archive));
 
 	TArray<uint8, TAlignedHeapAllocator<16>> Payload;
 	TArray<float> Scales;
 	BankView View;
 	TArray<int32> SourceIndices;
 	const bool bBuilt = Inspector->BuildAnalysisSampleForTest(
-		SecondSource, SecondSource.GetCount(), Payload, Scales, View, SourceIndices);
-	TestTrue(TEXT("second-slot archive channel-scoped sample build succeeds"), bBuilt);
+		ComparisonSource, ComparisonSource.GetCount(), Payload, Scales, View, SourceIndices);
+	TestTrue(TEXT("comparison-slot archive channel-scoped sample build succeeds"), bBuilt);
 	if (!bBuilt) { return true; }
 
 	alignas(16) float QueryBuf[4] = {1.0f, 0.0f, 0.0f, 0.0f}; // the exact chanA=0 unit direction
@@ -427,18 +427,25 @@ bool FSuperFAISSTutorialSecondSlotArchiveChannelScopeParityTest::RunTest(const F
 	QueryParams Params;
 	Params.k = FMath::Min(32, View.count);
 	const Status QueryStatus = Query(View, QueryBuf, Params, Ws, Hits, &HitCount);
-	TestEqual(TEXT("query over the second-slot channel-scoped view succeeds"),
+	TestEqual(TEXT("query over the comparison-slot channel-scoped view succeeds"),
 		static_cast<int>(QueryStatus), static_cast<int>(Status::Ok));
 
 	// Same golden set the primary-slot sibling test (TutorialArchiveChannelScopeParityTest)
 	// derives: every Primary row with ChanADir==0 -- {0,1,2,3,11,15,16,20} -- identical
-	// geometry, now read through the SECOND slot's own source-resolution path instead of the
+	// geometry, now read through the COMPARISON slot's own source-resolution path instead of the
 	// primary's.
 	TSet<int32> ExpectedChanA0 = {0, 1, 2, 3, 11, 15, 16, 20};
 	TSet<int32> ActualOnes;
 	for (int32 i = 0; i < HitCount; ++i)
 	{
 		if (!SourceIndices.IsValidIndex(Hits[i].index)) { continue; }
+		// Genuinely inexact -- checked by construction and by execution. A hand analysis
+		// (one-hot 10.0-magnitude chanA slice, Float32 quant) predicts bit-exact 1.0f/0.0f,
+		// but asserting that literally failed under the real engine build: the sample-build/
+		// query path's own float32 combine introduces a sub-%f-precision rounding step the
+		// hand derivation did not model (same finding as the sibling primary-slot cell,
+		// SuperFAISSTutorialBankOracleTests.cpp's CheckHits). 1e-5f matches the sibling's own
+		// pre-existing tolerance for this exact fixture shape.
 		if (FMath::Abs(Hits[i].score - 1.0f) < 1e-5f)
 		{
 			ActualOnes.Add(SourceIndices[Hits[i].index]);
@@ -448,8 +455,8 @@ bool FSuperFAISSTutorialSecondSlotArchiveChannelScopeParityTest::RunTest(const F
 	TArray<int32> ExpectedSorted = ExpectedChanA0.Array();
 	ActualSorted.Sort();
 	ExpectedSorted.Sort();
-	TestEqual(TEXT("second-slot archive: rows scoring 1.0 match the ChanADir=0 golden set "
-		"(dim 4/8 parity, second-slot leg -- untested by every prior oracle-gated cell, "
+	TestEqual(TEXT("comparison-slot archive: rows scoring 1.0 match the ChanADir=0 golden set "
+		"(dim 4/8 parity, comparison-slot leg -- untested by every prior oracle-gated cell, "
 		"which opened the archive on the primary slot only)"),
 		ActualSorted, ExpectedSorted);
 
@@ -457,11 +464,11 @@ bool FSuperFAISSTutorialSecondSlotArchiveChannelScopeParityTest::RunTest(const F
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSuperFAISSTutorialSecondSlotArchiveCorrespondenceParityTest,
-	"SuperFAISS.D.TutorialSecondSlotArchiveCorrespondenceParity",
+	FSuperFAISSTutorialComparisonSlotArchiveCorrespondenceParityTest,
+	"SuperFAISS.D.TutorialComparisonSlotArchiveCorrespondenceParity",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSuperFAISSTutorialSecondSlotArchiveCorrespondenceParityTest::RunTest(const FString& Parameters)
+bool FSuperFAISSTutorialComparisonSlotArchiveCorrespondenceParityTest::RunTest(const FString& Parameters)
 {
 	FSettingsGuard Guard;
 	Guard.Settings->MatchK = 2; // Secondary has only 6 rows; MatchK must not exceed live count
@@ -479,16 +486,16 @@ bool FSuperFAISSTutorialSecondSlotArchiveCorrespondenceParityTest::RunTest(const
 	Inspector->SetBankForTest(AssetPrimary);
 	Inspector->SetAnalysisScopeForTest(TEXT("chanA"));
 
-	// Secondary, opened as an ARCHIVE on the SECOND slot -- the sibling primary-slot test
+	// Secondary, opened as an ARCHIVE on the COMPARISON slot -- the sibling primary-slot test
 	// (TutorialArchiveCorrespondenceParityTest) puts the archive on the primary/A side; this
-	// cell is the untested B/second-slot leg the audit names.
-	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Secondary"), {}, /*bSecondSlot*/ true))
+	// cell is the untested B/comparison-slot leg the audit names.
+	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Secondary"), {}, /*bComparisonSlot*/ true))
 	{
 		return true;
 	}
-	const FSuperFAISSInspectionSource SecondSource = Inspector->GetSecondSource();
-	TestEqual(TEXT("(setup) second source resolves to Archive kind"),
-		static_cast<int32>(SecondSource.Kind), static_cast<int32>(FSuperFAISSInspectionSource::EKind::Archive));
+	const FSuperFAISSInspectionSource ComparisonSource = Inspector->GetComparisonSource();
+	TestEqual(TEXT("(setup) comparison source resolves to Archive kind"),
+		static_cast<int32>(ComparisonSource.Kind), static_cast<int32>(FSuperFAISSInspectionSource::EKind::Archive));
 
 	Inspector->ComputeCorrespondence();
 	const FSuperFAISSMatchPairResult* Pair = Inspector->GetMatchPairResults().FindByPredicate(
@@ -498,12 +505,18 @@ bool FSuperFAISSTutorialSecondSlotArchiveCorrespondenceParityTest::RunTest(const
 	// Same row4<->Secondary2 oracle the primary-slot sibling test derives (chanA-scoped,
 	// MatchK=2 -- see that test's own header comment for the full hand derivation): margin
 	// 0.5, Matched at the shipped default threshold.
-	TestEqual(TEXT("second-slot leg oracle: row4<->Secondary2 (untested composition per the "
+	TestEqual(TEXT("comparison-slot leg oracle: row4<->Secondary2 (untested composition per the "
 		"audit: every oracle-gated archive test opened the archive on the primary slot only)"),
 		Pair->SourceIndexB, 2);
-	TestTrue(TEXT("second-slot leg oracle: row4<->Secondary2 classifies Matched"),
+	TestTrue(TEXT("comparison-slot leg oracle: row4<->Secondary2 classifies Matched"),
 		Pair->State == ESuperFAISSMatchState::Matched);
-	TestTrue(TEXT("second-slot leg oracle: margin close to the hand-derived 0.5"),
+	// Genuinely inexact: CSLS margin combines two independent forward/back-verification
+	// dot products (matching.cpp) over rows carrying an irrational per-row normalization
+	// (bake.cpp NormalizeRows divides by sqrt(200), not exactly representable in float),
+	// so the underlying similarity terms sit within ~1 ULP of the hand-derived 0.5/1.0
+	// (measured), not bit-exact to them. 1e-4f is generous headroom over that measured
+	// few-ULP noise, matching the tolerance this suite's other CSLS-margin cells use.
+	TestTrue(TEXT("comparison-slot leg oracle: margin close to the hand-derived 0.5"),
 		FMath::Abs(Pair->CslsMargin - 0.5f) < 1e-4f);
 
 	return true;
@@ -569,7 +582,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FSuperFAISSTutorialArchiveSourceHeaderLineTest::RunTest(const FString& Parameters)
 {
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
-	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {15}, /*bSecondSlot*/ false))
+	if (!OpenTutorialArchive(*this, Inspector.Get(), TEXT("Primary"), {15}, /*bComparisonSlot*/ false))
 	{
 		return true;
 	}
@@ -775,7 +788,7 @@ bool FSuperFAISSCslsMarginThresholdLiteralPinTest::RunTest(const FString& Parame
 
 	TSharedRef<SSuperFAISSBankInspector> Inspector = SNew(SSuperFAISSBankInspector);
 	Inspector->SetBankForTest(Primary);
-	Inspector->SetSecondBankForTest(Secondary);
+	Inspector->SetComparisonBankForTest(Secondary);
 	Inspector->ComputeCorrespondence();
 
 	const FSuperFAISSMatchPairResult* Pair11 = Inspector->GetMatchPairResults().FindByPredicate(
@@ -1237,28 +1250,28 @@ bool FSuperFAISSArchiveOpenChannelStateAfterUnrelatedAssetTest::RunTest(const FS
 
 // ===========================================================================
 // Item 3 (round-2, this round's own settlement question): does
-// OpenSecondScratchArchiveFromBytes() leave any source-dependent UI state stale by NOT
+// OpenComparisonScratchArchiveFromBytes() leave any source-dependent UI state stale by NOT
 // resyncing the channel sliders/projection scope or clearing ProjectedPoints/ProjectionStatus,
 // the way the primary slot's OpenScratchArchiveFromBytes() does? Determined at source
 // (SSuperFAISSBankInspector.cpp) and confirmed here by execution: NO.
 // ResyncChannelSlidersToPrimarySource(), ResetProjectionScope(), BuildProjection's
 // channel/scope resolution, and RunQuery's Args.Channels.Add all read GetPrimarySource()
-// exclusively, never GetSecondSource() -- so nothing channel- or projection-related can go
-// stale from a second-slot open no matter what it does or does not reset. Everything that IS
-// second-source-dependent (MatchPairResults, CorrespondenceStatus, NoveltyResult, the
+// exclusively, never GetComparisonSource() -- so nothing channel- or projection-related can go
+// stale from a comparison-slot open no matter what it does or does not reset. Everything that IS
+// comparison-source-dependent (MatchPairResults, CorrespondenceStatus, NoveltyResult, the
 // Structure* fields) is already unconditionally cleared by InvalidateAnalysisCaches(), which
-// OpenSecondScratchArchiveFromBytes() already calls. There
-// is no stale-state gap on the second slot; the omission the finding's literal wording
+// OpenComparisonScratchArchiveFromBytes() already calls. There
+// is no stale-state gap on the comparison slot; the omission the finding's literal wording
 // ("primary") named is correct by design, not a scoped-out fix. No production change made
 // either way -- this cell pins the design fact as an executable regression guard.
 // ===========================================================================
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSuperFAISSSecondSlotArchiveOpenChannelStateUnchangedTest,
-	"SuperFAISS.D.SecondSlotArchiveOpenChannelStateUnchanged",
+	FSuperFAISSComparisonSlotArchiveOpenChannelStateUnchangedTest,
+	"SuperFAISS.D.ComparisonSlotArchiveOpenChannelStateUnchanged",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSuperFAISSSecondSlotArchiveOpenChannelStateUnchangedTest::RunTest(const FString& Parameters)
+bool FSuperFAISSComparisonSlotArchiveOpenChannelStateUnchangedTest::RunTest(const FString& Parameters)
 {
 	using namespace superfaiss;
 	constexpr int32 Count = 6;
@@ -1269,15 +1282,15 @@ bool FSuperFAISSSecondSlotArchiveOpenChannelStateUnchangedTest::RunTest(const FS
 		{TEXT("chanA"), TEXT("chanB")}, {0, 4}, {4, 4}, 0xB001ull);
 	if (PrimaryAsset == nullptr) { return true; }
 
-	// Second slot: a DIFFERENT channel geometry ("chanZ" only) -- if the second-slot open
-	// wrongly repopulated the combo from the SECOND source, this would be immediately visible as
+	// Comparison slot: a DIFFERENT channel geometry ("chanZ" only) -- if the comparison-slot open
+	// wrongly repopulated the combo from the COMPARISON source, this would be immediately visible as
 	// "chanA" no longer resolving to the channel's own dims.
-	const TArray<FName> SecondNames = {TEXT("chanZ")};
-	const TArray<int32> SecondOffsets = {0};
-	const TArray<int32> SecondLengths = {4};
-	TArray<uint8> SecondBytes;
-	if (!MakeGapClosureArchiveBytes(*this, Count, Dims, SecondNames, SecondOffsets, SecondLengths,
-		0xB002ull, SecondBytes))
+	const TArray<FName> ComparisonNames = {TEXT("chanZ")};
+	const TArray<int32> ComparisonOffsets = {0};
+	const TArray<int32> ComparisonLengths = {4};
+	TArray<uint8> ComparisonBytes;
+	if (!MakeGapClosureArchiveBytes(*this, Count, Dims, ComparisonNames, ComparisonOffsets, ComparisonLengths,
+		0xB002ull, ComparisonBytes))
 	{
 		return true;
 	}
@@ -1286,22 +1299,22 @@ bool FSuperFAISSSecondSlotArchiveOpenChannelStateUnchangedTest::RunTest(const FS
 	Inspector->SetBankForTest(PrimaryAsset);
 	Inspector->SetAnalysisScopeForTest(TEXT("chanA"));
 
-	TestTrue(TEXT("second archive opens"),
-		Inspector->OpenSecondScratchArchiveFromBytes(SecondBytes, TEXT("second-slot-archive.bin")));
+	TestTrue(TEXT("comparison archive opens"),
+		Inspector->OpenComparisonScratchArchiveFromBytes(ComparisonBytes, TEXT("comparison-slot-archive.bin")));
 
 	// Channel state: chanA still resolves against the PRIMARY source at its own dims (4) -- the
-	// second-slot open did not touch RepopulateChannelState() or the combo's content.
+	// comparison-slot open did not touch RepopulateChannelState() or the combo's content.
 	TArray<uint8, TAlignedHeapAllocator<16>> Payload;
 	TArray<float> Scales;
 	BankView View;
 	TArray<int32> SourceIndices;
 	const bool bBuilt = Inspector->BuildAnalysisSampleForTest(Inspector->GetPrimarySource(),
 		Count, Payload, Scales, View, SourceIndices);
-	TestTrue(TEXT("chanA still resolves against the primary source after the second-slot open"),
+	TestTrue(TEXT("chanA still resolves against the primary source after the comparison-slot open"),
 		bBuilt);
 	if (bBuilt)
 	{
-		TestEqual(TEXT("dims still equal chanA's own length (4) -- the second-slot open did not "
+		TestEqual(TEXT("dims still equal chanA's own length (4) -- the comparison-slot open did not "
 			"repopulate or otherwise disturb the primary-driven channel state"), View.dims, 4);
 	}
 
@@ -1708,8 +1721,11 @@ bool FSuperFAISSPrimaryBankChangeResetsChannelWeightsTest::RunTest(const FString
 		if (Initial.Num() == 1)
 		{
 			TestEqual(TEXT("(setup) 'text' names the rendered slider"), Initial[0].Key, FString(TEXT("text")));
-			TestTrue(TEXT("(setup) the slider starts at its 1.0 default"),
-				FMath::IsNearlyEqual(Initial[0].Value, 1.0f, 1e-3f));
+			// Bit-exact: the rendered weight is a literal (1.0f default / 0.0f set-by-seam),
+			// round-tripped through "%.2f" text formatting and FCString::Atof -- both values
+			// are exactly representable at 2 decimal digits, so the round-trip introduces no
+			// rounding. No kernel or quantization arithmetic is in this path.
+			TestTrue(TEXT("(setup) the slider starts at its 1.0 default"), Initial[0].Value == 1.0f);
 		}
 	}
 
@@ -1727,8 +1743,10 @@ bool FSuperFAISSPrimaryBankChangeResetsChannelWeightsTest::RunTest(const FString
 		TestEqual(TEXT("(setup) one channel slider still renders after the seam call"), AfterSeam.Num(), 1);
 		if (AfterSeam.Num() == 1)
 		{
+			// Bit-exact -- see the "(setup) the slider starts at its 1.0 default" comment
+			// above: a literal round-tripped through "%.2f"/Atof, no arithmetic involved.
 			TestTrue(TEXT("(setup) the seam moved 'text''s rendered weight to the non-default 0.0 "
-				"this cell set"), FMath::IsNearlyEqual(AfterSeam[0].Value, 0.0f, 1e-3f));
+				"this cell set"), AfterSeam[0].Value == 0.0f);
 		}
 	}
 
@@ -1750,8 +1768,9 @@ bool FSuperFAISSPrimaryBankChangeResetsChannelWeightsTest::RunTest(const FString
 			"incoming banks share a channel name. A regression that reintroduces "
 			"RepopulateChannelState()'s by-name carryover (removed under D-INSP-27, previously "
 			"added under T-1100) would preserve the pre-change 0.0 weight across this exact "
-			"same-name swap instead of resetting it"),
-			FMath::IsNearlyEqual(AfterSwap[0].Value, 1.0f, 1e-3f));
+			"same-name swap instead of resetting it -- bit-exact, a literal round-tripped "
+			"through \"%.2f\"/Atof, no arithmetic involved"),
+			AfterSwap[0].Value == 1.0f);
 	}
 
 	return true;
@@ -1811,8 +1830,11 @@ bool FSuperFAISSArchiveResyncResetsChannelWeightsTest::RunTest(const FString& Pa
 		if (Initial.Num() == 1)
 		{
 			TestEqual(TEXT("(setup) 'text' names the rendered slider"), Initial[0].Key, FString(TEXT("text")));
-			TestTrue(TEXT("(setup) the slider starts at its 1.0 default"),
-				FMath::IsNearlyEqual(Initial[0].Value, 1.0f, 1e-3f));
+			// Bit-exact: the rendered weight is a literal (1.0f default / 0.0f set-by-seam),
+			// round-tripped through "%.2f" text formatting and FCString::Atof -- both values
+			// are exactly representable at 2 decimal digits, so the round-trip introduces no
+			// rounding. No kernel or quantization arithmetic is in this path.
+			TestTrue(TEXT("(setup) the slider starts at its 1.0 default"), Initial[0].Value == 1.0f);
 		}
 	}
 
@@ -1825,8 +1847,10 @@ bool FSuperFAISSArchiveResyncResetsChannelWeightsTest::RunTest(const FString& Pa
 		TestEqual(TEXT("(setup) one channel slider still renders after the seam call"), AfterSeam.Num(), 1);
 		if (AfterSeam.Num() == 1)
 		{
+			// Bit-exact -- see the "(setup) the slider starts at its 1.0 default" comment
+			// above: a literal round-tripped through "%.2f"/Atof, no arithmetic involved.
 			TestTrue(TEXT("(setup) the seam moved 'text''s rendered weight to the non-default 0.0 "
-				"this cell set"), FMath::IsNearlyEqual(AfterSeam[0].Value, 0.0f, 1e-3f));
+				"this cell set"), AfterSeam[0].Value == 0.0f);
 		}
 	}
 
@@ -1853,8 +1877,9 @@ bool FSuperFAISSArchiveResyncResetsChannelWeightsTest::RunTest(const FString& Pa
 			"resets to its 1.0 default on a primary-source change to an archive too, including the "
 			"exact archive-resync path T-1100's own carryover was written for. A regression that "
 			"reintroduces RepopulateChannelState()'s by-name carryover would preserve the "
-			"pre-resync 0.0 weight across this same-name swap instead of resetting it"),
-			FMath::IsNearlyEqual(AfterResync[0].Value, 1.0f, 1e-3f));
+			"pre-resync 0.0 weight across this same-name swap instead of resetting it -- "
+			"bit-exact, a literal round-tripped through \"%.2f\"/Atof, no arithmetic involved"),
+			AfterResync[0].Value == 1.0f);
 	}
 
 	return true;

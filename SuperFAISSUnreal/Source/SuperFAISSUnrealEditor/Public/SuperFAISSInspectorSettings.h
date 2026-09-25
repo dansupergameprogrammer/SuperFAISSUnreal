@@ -85,7 +85,7 @@ public:
 	// what a developer's local EditorPerProjectUserSettings.ini currently holds (the
 	// CDO's CslsMarginThreshold is config-loaded and coincides with this value only on a
 	// clean checkout). Read by `SuperFAISS.D.CslsMarginThresholdLiteralPin` and by the
-	// second-slot correspondence parity cell, in addition to its own field initializer
+	// comparison-slot correspondence parity cell, in addition to its own field initializer
 	// below. The calibration interval this value must stay inside is pinned at compile
 	// time, not in this comment -- see the static_assert immediately below.
 	static constexpr float kDefaultCslsMarginThreshold = 0.375f;

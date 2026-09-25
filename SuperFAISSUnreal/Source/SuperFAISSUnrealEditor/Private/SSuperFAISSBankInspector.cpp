@@ -19,6 +19,7 @@
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "Widgets/Input/SSlider.h"
+#include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Views/SListView.h"
@@ -265,7 +266,7 @@ namespace
 // ---------------------------------------------------------------------------
 // FSuperFAISSInspectionSource: mechanical dispatch over the two source kinds -- no
 // algorithm to gate, the SAME "real, shipped-shape logic" posture already applied to
-// CheckSecondBankCompatible/RefreshSecondBankList.
+// CheckComparisonBankCompatible/RefreshComparisonBankList.
 // ---------------------------------------------------------------------------
 
 bool FSuperFAISSInspectionSource::IsValid() const
@@ -545,6 +546,78 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 				[
 					SAssignNew(ChannelSliderBox, SVerticalBox)
 				]
+				// V3.4 plan §9.1: the diversity slider, below the channel-weight sliders. λ = 1
+				// (the default) is the plain ranked result; lower values trade relevance for
+				// results less similar to each other. Keyboard-steppable (§9.6).
+				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 2)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox).WidthOverride(140.0f)
+						[
+							SNew(STextBlock).Font(Body)
+							.Text_Lambda([this]()
+							{
+								// Deliberately NOT the channel-slider row's "%s  %.2f" format (name, two
+							// spaces, weight): that format identifies a channel slider's rendered
+							// label, and this row is not one.
+							return FText::FromString(FString::Printf(TEXT("diversity λ = %.2f"), DiversityLambda));
+							})
+						]
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
+					[
+						SNew(SSlider)
+						.ToolTipText(FText::FromString(TEXT(
+							"1.0 ranks by relevance alone. Lower values prefer results that are less "
+							"similar to the ones already chosen.")))
+						.MinValue(0.0f).MaxValue(1.0f).StepSize(0.05f)
+						.Value_Lambda([this]() { return DiversityLambda; })
+						.OnValueChanged_Lambda([this](float Value)
+					{
+						DiversityLambda = Value;
+						OnDiversityControlChanged();
+					})
+					]
+				]
+				// V3.4 plan §9.2: the result-count control, in the same box as the sliders and
+				// the query field. Session-scoped (a widget member, like ChannelWeights).
+				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 2)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox).WidthOverride(140.0f)
+						[
+							SNew(STextBlock).Font(Body).Text(FText::FromString(TEXT("results (K)")))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox).WidthOverride(80.0f)
+						[
+							SNew(SSpinBox<int32>).Font(Body)
+							.ToolTipText(FText::FromString(FString::Printf(
+								TEXT("Number of ranked results the query returns (1-%d)."), kHardQueryKCap)))
+							.MinValue(1).MaxValue(kHardQueryKCap)
+							.MinSliderValue(1).MaxSliderValue(kHardQueryKCap)
+							.Delta(1)
+							.Value_Lambda([this]() { return QueryK; })
+							.OnValueChanged_Lambda([this](int32 Value)
+						{
+							QueryK = Value;
+							OnDiversityControlChanged();
+						})
+						]
+					]
+				]
+				// The diversity note slot (§9.4 / §9.5a / §6.2): one line, one message at a time.
+				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 6)
+				[
+					SNew(STextBlock).Font(Body).AutoWrapText(true).ColorAndOpacity(FLinearColor::Gray)
+					.Text_Lambda([this]() { return FText::FromString(GetDiversityNoteText()); })
+				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 6)
 				[
 					SNew(SEditableTextBox).Font(Body)
@@ -736,7 +809,7 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 						]
 					]
 				]
-				// View C (Correspondence), section 25.5: the second-bank slot + "Compute
+				// View C (Correspondence), section 25.5: the comparison-bank slot + "Compute
 				// correspondence" trigger + the matched-pair list. The state column is
 				// TEXT ONLY (matched / ambiguous / unmatched) — never color-coded rows
 				// (section 25.5, verbatim), so the row widget below carries no per-state
@@ -747,7 +820,7 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 					+ SHorizontalBox::Slot().FillWidth(1.0f)
 					[
 						SNew(SComboBox<TSharedPtr<FString>>)
-						.OptionsSource(&SecondBankNames)
+						.OptionsSource(&ComparisonBankNames)
 						.OnGenerateWidget_Lambda([Body](TSharedPtr<FString> Item)
 						{
 							return SNew(STextBlock).Font(Body).Text(FText::FromString(*Item));
@@ -755,29 +828,29 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 						.OnSelectionChanged_Lambda(
 							[this](TSharedPtr<FString> Item, ESelectInfo::Type)
 							{
-								SelectedSecondBankName = Item;
-								OnSecondBankSelected();
+								SelectedComparisonBankName = Item;
+								OnComparisonBankSelected();
 							})
 						[
 							SNew(STextBlock).Font(Body)
 							.Text_Lambda([this]()
 							{
-								return FText::FromString(SelectedSecondBankName.IsValid()
-									? *SelectedSecondBankName : TEXT("select a second bank..."));
+								return FText::FromString(SelectedComparisonBankName.IsValid()
+									? *SelectedComparisonBankName : TEXT("select a comparison bank..."));
 							})
 						]
 					]
-					// SF34-002 (T-01): the second-bank slot's OWN "Open Archive..." affordance
+					// SF34-002 (T-01): the comparison-bank slot's OWN "Open Archive..." affordance
 					// -- the mirror of the primary slot's, driving
-					// OpenSecondScratchArchiveFromBytes via the SAME PeekAndOpenArchive
-					// peek-gated flow (bSecondSlot=true).
+					// OpenComparisonScratchArchiveFromBytes via the SAME PeekAndOpenArchive
+					// peek-gated flow (bComparisonSlot=true).
 					+ SHorizontalBox::Slot().AutoWidth().Padding(6, 0, 0, 0)
 					[
 						SNew(SButton)
 						.ToolTipText(FText::FromString(TEXT(
-							"Open a .bin scratch archive as the second-bank (Correspondence) "
+							"Open a .bin scratch archive as the comparison-bank (Correspondence) "
 							"source. Geometry is shown before commit; a failed open leaves "
-							"the current second source unchanged.")))
+							"the current comparison source unchanged.")))
 						.OnClicked(this, &SSuperFAISSBankInspector::OnOpenArchiveClicked, true)
 						[
 							SNew(STextBlock).Font(Body).Text(FText::FromString(TEXT("Open Archive…")))
@@ -809,17 +882,30 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 						]
 					]
 				]
-				// T-11 (SF34-007): the second slot's own peek geometry + open/rejection
+				// D-INSP-36 / plan §7.2: the shared identity block -- which two banks a
+				// displayed number actually came from. Correspondence's picker area gains
+				// this where today it shows only the comparison bank's name; Drift's panel
+				// will use the same BuildComparisonIdentityBlock once it is built.
+				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 2)
+				[
+					SNew(STextBlock).Font(Body).AutoWrapText(true)
+					.Text_Lambda([this]()
+					{
+						return FText::FromString(
+							BuildComparisonIdentityBlock(GetPrimarySource(), GetComparisonSource()));
+					})
+				]
+				// T-11 (SF34-007): the comparison slot's own peek geometry + open/rejection
 				// status, the mirror of the primary slot's own pair above.
 				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 2)
 				[
 					SNew(STextBlock).Font(Body).AutoWrapText(true).ColorAndOpacity(FLinearColor::Gray)
-					.Text_Lambda([this]() { return FText::FromString(GetSecondArchivePeekGeometry()); })
+					.Text_Lambda([this]() { return FText::FromString(GetComparisonArchivePeekGeometry()); })
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 2)
 				[
 					SNew(STextBlock).Font(Body).AutoWrapText(true)
-					.Text_Lambda([this]() { return FText::FromString(GetSecondArchiveOpenStatus()); })
+					.Text_Lambda([this]() { return FText::FromString(GetComparisonArchiveOpenStatus()); })
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 2)
 				[
@@ -863,6 +949,116 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 						]
 					]
 				]
+				// V3.4 plan §8: the drift panel -- Gate 6a. Reads the SAME comparison-bank
+				// slot Correspondence's own picker (above) drives (§7); no second picker.
+				+ SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 2)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SButton)
+						// §8.5: the HEAVY-pass cost disclosure, shown BEFORE the pass runs,
+						// mirroring the correspondence trigger's own tooltip.
+						.ToolTipText_Lambda([this]()
+						{
+							return FText::FromString(GetPendingDriftDisclosure());
+						})
+						.OnClicked_Lambda([this]()
+						{
+							ComputeDrift();
+							return FReply::Handled();
+						})
+						[
+							SNew(STextBlock).Font(Body).Text(FText::FromString(TEXT("Compute drift")))
+						]
+					]
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 6)
+				[
+					SNew(STextBlock).Font(Body).AutoWrapText(true)
+					.Text_Lambda([this]() -> FText
+					{
+						// §8.4: whole-panel refusals take the entire panel's text.
+						if (DriftResult.bQuantizationRefusal)
+						{
+							return FText::FromString(DriftResult.QuantizationRefusalText);
+						}
+						if (DriftResult.bMetricDotRefusal)
+						{
+							return FText::FromString(DriftResult.MetricDotRefusalText);
+						}
+						if (DriftResult.bCancelled)
+						{
+							return FText::FromString(TEXT("cancelled"));
+						}
+						if (!DriftResult.Identity.PrimaryDisplayName.IsEmpty()
+							|| !DriftResult.Identity.ComparisonDisplayName.IsEmpty())
+						{
+							// §7.2: the shared identity block, plus §8.7's self-comparison
+							// disclosure.
+							FString Text = BuildComparisonIdentityBlock(GetPrimarySource(), GetComparisonSource());
+							if (DriftResult.Identity.bSelfComparison)
+							{
+								Text += TEXT("\nComparing bank to itself.");
+							}
+							// §8.3.3/§8.3.4: the headline, worst-case, and typical lines,
+							// each self-relatively disclosed, or refused with its own text.
+							if (DriftResult.bHeadlineZeroNormQueryRefusal)
+							{
+								Text += TEXT("\nMovement unavailable: current has no net direction on this ")
+									TEXT("metric to measure against (the selection's vectors cancel).");
+							}
+							else if (DriftResult.bHeadlineZeroDenominatorRefusal)
+							{
+								Text += FString::Printf(TEXT("\nMovement: %g (current spread %g, baseline spread %g)")
+									TEXT("\nSelf-relative ratio unavailable: current has no internal variation to ")
+									TEXT("measure movement against (single live row, or all live rows identical)."),
+									DriftResult.Movement, DriftResult.SpreadCurrent, DriftResult.SpreadBaseline);
+							}
+							else
+							{
+								Text += FString::Printf(
+									TEXT("\nMovement: %g (current spread %g, baseline spread %g) -- moved about ")
+									TEXT("%gx its own typical row-to-row variation"),
+									DriftResult.Movement, DriftResult.SpreadCurrent, DriftResult.SpreadBaseline,
+									DriftResult.HeadlineRatio);
+							}
+							if (!DriftResult.bWorstCaseZeroDenominatorRefusal)
+							{
+								Text += FString::Printf(TEXT("\nWorst-case new content: %g (%gx typical variation)"),
+									DriftResult.MaxNN, DriftResult.WorstCaseRatio);
+							}
+							if (!DriftResult.bTypicalZeroDenominatorRefusal)
+							{
+								Text += FString::Printf(TEXT("\nTypical new content: %g (%gx typical variation)"),
+									DriftResult.MeanNN, DriftResult.TypicalRatio);
+							}
+							for (const FSuperFAISSDriftPerChannelResult& Chan : DriftResult.Channels)
+							{
+								if (Chan.bZeroNormQueryRefusal)
+								{
+									Text += FString::Printf(TEXT("\n%s: movement unavailable (no net direction)"),
+										*Chan.ChannelName.ToString());
+								}
+								else if (Chan.bZeroDenominatorRefusal)
+								{
+									Text += FString::Printf(
+										TEXT("\n%s: movement %g (spread current %g, baseline %g) -- ratio unavailable"),
+										*Chan.ChannelName.ToString(), Chan.Movement, Chan.SpreadCurrent, Chan.SpreadBaseline);
+								}
+								else
+								{
+									Text += FString::Printf(
+										TEXT("\n%s: movement %g (spread current %g, baseline %g) -- %gx"),
+										*Chan.ChannelName.ToString(), Chan.Movement, Chan.SpreadCurrent,
+										Chan.SpreadBaseline, Chan.ComposedRatio);
+								}
+							}
+							return FText::FromString(Text);
+						}
+						return FText::GetEmpty();
+					})
+				]
 				+ SVerticalBox::Slot().FillHeight(1.0f)
 				[
 					SNew(SBorder).Padding(2.0f)
@@ -878,7 +1074,7 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 		]
 	];
 
-	RefreshSecondBankList();
+	RefreshComparisonBankList();
 	OnBankSelected();
 }
 
@@ -918,17 +1114,17 @@ USuperFAISSVectorBank* SSuperFAISSBankInspector::GetSelectedBank() const
 }
 
 // ---------------------------------------------------------------------------
-// V3.2 plan section 25.5 View C (Correspondence), slot 4 — the second-bank slot
+// V3.2 plan section 25.5 View C (Correspondence), slot 4 — the comparison-bank slot
 // (section 25.3 E-D1-1..4). Mirrors RefreshBankList()/GetSelectedBank() exactly; this
 // list population and lookup are pre-existing, shipped machinery (asset-registry
-// enumeration) repointed at a second slot, not new achievement — real, not RED
+// enumeration) repointed at a comparison slot, not new achievement — real, not RED
 // SCAFFOLD, same reasoning slot 3 applied to the channel-slider/scope-combo population.
 // ---------------------------------------------------------------------------
 
-void SSuperFAISSBankInspector::RefreshSecondBankList()
+void SSuperFAISSBankInspector::RefreshComparisonBankList()
 {
-	SecondBankNames.Reset();
-	SecondBankAssets.Reset();
+	ComparisonBankNames.Reset();
+	ComparisonBankAssets.Reset();
 	FAssetRegistryModule& AssetRegistry =
 		FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	TArray<FAssetData> Assets;
@@ -938,80 +1134,80 @@ void SSuperFAISSBankInspector::RefreshSecondBankList()
 	{
 		if (USuperFAISSVectorBank* Bank = Cast<USuperFAISSVectorBank>(Asset.GetAsset()))
 		{
-			SecondBankNames.Add(MakeShared<FString>(Bank->GetName()));
-			SecondBankAssets.Add(Bank);
+			ComparisonBankNames.Add(MakeShared<FString>(Bank->GetName()));
+			ComparisonBankAssets.Add(Bank);
 		}
 	}
 }
 
-USuperFAISSVectorBank* SSuperFAISSBankInspector::GetSelectedSecondBank() const
+USuperFAISSVectorBank* SSuperFAISSBankInspector::GetSelectedComparisonBank() const
 {
-	for (int32 i = 0; i < SecondBankNames.Num(); ++i)
+	for (int32 i = 0; i < ComparisonBankNames.Num(); ++i)
 	{
-		if (SecondBankNames[i] == SelectedSecondBankName && SecondBankAssets.IsValidIndex(i))
+		if (ComparisonBankNames[i] == SelectedComparisonBankName && ComparisonBankAssets.IsValidIndex(i))
 		{
-			return SecondBankAssets[i].Get();
+			return ComparisonBankAssets[i].Get();
 		}
 	}
 	return nullptr;
 }
 
-void SSuperFAISSBankInspector::OnSecondBankSelected()
+void SSuperFAISSBankInspector::OnComparisonBankSelected()
 {
 	// Slot 4b mutual exclusion (FSuperFAISSInspectionSource's class comment): picking an
-	// asset from the second-bank combo supersedes any open second archive -- the second
-	// slot's own copy of the same FSuperFAISSArchiveSlotState::Reset().
-	SecondArchive.Reset();
+	// asset from the comparison-bank combo supersedes any open comparison archive -- the
+	// comparison slot's own copy of the same FSuperFAISSArchiveSlotState::Reset().
+	ComparisonArchive.Reset();
 	InvalidateAnalysisCaches();
 }
 
-bool SSuperFAISSBankInspector::CheckSecondBankCompatible(const USuperFAISSVectorBank& A,
+bool SSuperFAISSBankInspector::CheckComparisonBankCompatible(const USuperFAISSVectorBank& A,
 	const USuperFAISSVectorBank* B, FString& OutReason) const
 {
 	if (B == nullptr)
 	{
-		OutReason = TEXT("no second bank selected");
+		OutReason = TEXT("no comparison bank selected");
 		return false;
 	}
 	if (!B->IsValid())
 	{
-		OutReason = TEXT("second bank: invalid asset");
+		OutReason = TEXT("comparison bank: invalid asset");
 		return false;
 	}
 	if (A.Dims != B->Dims)
 	{
-		OutReason = TEXT("second bank: dims mismatch");
+		OutReason = TEXT("comparison bank: dims mismatch");
 		return false;
 	}
 	if (A.Metric != B->Metric)
 	{
-		OutReason = TEXT("second bank: metric mismatch");
+		OutReason = TEXT("comparison bank: metric mismatch");
 		return false;
 	}
 	return true;
 }
 
-bool SSuperFAISSBankInspector::CheckSecondBankCompatible(const FSuperFAISSInspectionSource& A,
+bool SSuperFAISSBankInspector::CheckComparisonBankCompatible(const FSuperFAISSInspectionSource& A,
 	const FSuperFAISSInspectionSource& B, FString& OutReason) const
 {
 	if (B.Kind == FSuperFAISSInspectionSource::EKind::None)
 	{
-		OutReason = TEXT("no second bank selected");
+		OutReason = TEXT("no comparison bank selected");
 		return false;
 	}
 	if (!B.IsValid())
 	{
-		OutReason = TEXT("second bank: invalid asset");
+		OutReason = TEXT("comparison bank: invalid asset");
 		return false;
 	}
 	if (A.GetDims() != B.GetDims())
 	{
-		OutReason = TEXT("second bank: dims mismatch");
+		OutReason = TEXT("comparison bank: dims mismatch");
 		return false;
 	}
 	if (A.GetMetric() != B.GetMetric())
 	{
-		OutReason = TEXT("second bank: metric mismatch");
+		OutReason = TEXT("comparison bank: metric mismatch");
 		return false;
 	}
 	return true;
@@ -1035,17 +1231,17 @@ FSuperFAISSInspectionSource SSuperFAISSBankInspector::GetPrimarySource() const
 	return Source;
 }
 
-FSuperFAISSInspectionSource SSuperFAISSBankInspector::GetSecondSource() const
+FSuperFAISSInspectionSource SSuperFAISSBankInspector::GetComparisonSource() const
 {
 	FSuperFAISSInspectionSource Source;
-	if (SecondArchive.Bank.IsValid())
+	if (ComparisonArchive.Bank.IsValid())
 	{
 		Source.Kind = FSuperFAISSInspectionSource::EKind::Archive;
-		Source.ArchiveBank = SecondArchive.Bank;
-		Source.ArchiveDisplayName = SecondArchive.DisplayName;
+		Source.ArchiveBank = ComparisonArchive.Bank;
+		Source.ArchiveDisplayName = ComparisonArchive.DisplayName;
 		return Source;
 	}
-	if (USuperFAISSVectorBank* Bank = GetSelectedSecondBank())
+	if (USuperFAISSVectorBank* Bank = GetSelectedComparisonBank())
 	{
 		Source.Kind = FSuperFAISSInspectionSource::EKind::Asset;
 		Source.Asset = Bank;
@@ -1058,7 +1254,7 @@ FSuperFAISSInspectionSource SSuperFAISSBankInspector::GetSecondSource() const
 // already-shipped primitives (USuperFAISSScratchBank::LoadFromBytes -> core
 // ScratchBank::Load, reject-over-degrade) -- no algorithm invented here, the same
 // "mechanical scaffolding authored real" posture already applied to
-// CheckSecondBankCompatible/RefreshSecondBankList. The crux work this leaves
+// CheckComparisonBankCompatible/RefreshComparisonBankList. The crux work this leaves
 // deliberately unbuilt lives downstream, in BuildAnalysisSample(Source, ...).
 // ---------------------------------------------------------------------------
 
@@ -1090,9 +1286,9 @@ namespace
 	// T-11 (SF34-007, gap-closure round 2): the geometry-line formatter, shared by every
 	// entry point that opens an archive from raw bytes. Previously this string was built
 	// ONLY inside PeekAndOpenArchive (the file-dialog flow), so the direct byte API --
-	// OpenScratchArchiveFromBytes/OpenSecondScratchArchiveFromBytes, the only entry point any
+	// OpenScratchArchiveFromBytes/OpenComparisonScratchArchiveFromBytes, the only entry point any
 	// automation test can drive, since no automation test can operate a modal file dialog --
-	// left ArchivePeekGeometry/SecondArchivePeekGeometry permanently empty. Extracting the
+	// left ArchivePeekGeometry/ComparisonArchivePeekGeometry permanently empty. Extracting the
 	// format string here lets both entry points produce the identical disclosure.
 	//
 	// Fix (2026-07-25, ArchivePeekGeometryDisclosure): USuperFAISSScratchBank::SaveToBytes
@@ -1159,6 +1355,8 @@ bool SSuperFAISSBankInspector::OpenScratchArchiveFromBytes(const TArray<uint8>& 
 	// supersedes the asset-registry combo selection.
 	SelectedBankName.Reset();
 	PrimaryArchive.OpenStatus.Reset();
+	// The last query text names a row of the previous source (see OnBankSelected()).
+	LastQueryText.Reset();
 	// The NEW archive-swap leg of the reset matrix (audit F3): opening an archive is a
 	// selection-change event exactly like OnBankSelected()'s own trigger, so it fires the
 	// SAME one-rule cache clear -- archive #1's exclusion/tombstone state and live-row
@@ -1221,43 +1419,43 @@ bool SSuperFAISSBankInspector::OpenScratchArchiveFromBytes(const TArray<uint8>& 
 	return true;
 }
 
-bool SSuperFAISSBankInspector::OpenSecondScratchArchiveFromBytes(const TArray<uint8>& Bytes, const FString& DisplayName)
+bool SSuperFAISSBankInspector::OpenComparisonScratchArchiveFromBytes(const TArray<uint8>& Bytes, const FString& DisplayName)
 {
 	USuperFAISSScratchBank* Loaded = NewObject<USuperFAISSScratchBank>();
 	if (!Loaded->LoadFromBytes(Bytes))
 	{
-		SecondArchive.OpenStatus = TEXT("archive: bad format (corrupt, truncated, wrong version, or not an archive)");
+		ComparisonArchive.OpenStatus = TEXT("archive: bad format (corrupt, truncated, wrong version, or not an archive)");
 		return false;
 	}
-	SecondArchive.Bank = TStrongObjectPtr<USuperFAISSScratchBank>(Loaded);
-	SecondArchive.DisplayName = DisplayName;
-	SelectedSecondBankName.Reset();
-	SecondArchive.OpenStatus.Reset();
+	ComparisonArchive.Bank = TStrongObjectPtr<USuperFAISSScratchBank>(Loaded);
+	ComparisonArchive.DisplayName = DisplayName;
+	SelectedComparisonBankName.Reset();
+	ComparisonArchive.OpenStatus.Reset();
 	InvalidateAnalysisCaches();
-	// T-11 (SF34-007): the second slot's own copy of the same disclosure, independently.
+	// T-11 (SF34-007): the comparison slot's own copy of the same disclosure, independently.
 	{
 		using namespace superfaiss;
 		ScratchArchiveInfo Info;
 		if (PeekScratchArchive(Bytes.GetData(), Bytes.Num(), &Info) == Status::Ok)
 		{
-			SecondArchive.PeekGeometry = FormatArchivePeekGeometry(Info, Bytes.GetData(), static_cast<int64>(Bytes.Num()));
+			ComparisonArchive.PeekGeometry = FormatArchivePeekGeometry(Info, Bytes.GetData(), static_cast<int64>(Bytes.Num()));
 		}
 		else
 		{
 			// Mirrors the primary slot's own reset above.
-			SecondArchive.PeekGeometry.Reset();
+			ComparisonArchive.PeekGeometry.Reset();
 		}
 	}
 	return true;
 }
 
 bool SSuperFAISSBankInspector::PeekAndOpenArchive(
-	const TArray<uint8>& Bytes, const FString& DisplayName, bool bSecondSlot)
+	const TArray<uint8>& Bytes, const FString& DisplayName, bool bComparisonSlot)
 {
 	using namespace superfaiss;
 
-	FString& OpenStatus = bSecondSlot ? SecondArchive.OpenStatus : PrimaryArchive.OpenStatus;
-	FString& PeekGeometry = bSecondSlot ? SecondArchive.PeekGeometry : PrimaryArchive.PeekGeometry;
+	FString& OpenStatus = bComparisonSlot ? ComparisonArchive.OpenStatus : PrimaryArchive.OpenStatus;
+	FString& PeekGeometry = bComparisonSlot ? ComparisonArchive.PeekGeometry : PrimaryArchive.PeekGeometry;
 
 	// The peek: read-only, no state mutation on either branch below -- SF34-002's own
 	// acceptance ("geometry is shown before commit; a failed open preserves the current
@@ -1280,11 +1478,11 @@ bool SSuperFAISSBankInspector::PeekAndOpenArchive(
 	// commit runs, per SF34-002's own ordering claim.
 	PeekGeometry = FormatArchivePeekGeometry(Info, Bytes.GetData(), static_cast<int64>(Bytes.Num()));
 
-	// The commit: the existing, already-proven Open(Second)ScratchArchiveFromBytes -- its
+	// The commit: the existing, already-proven Open(Comparison)ScratchArchiveFromBytes -- its
 	// own full Load validation is NOT bypassed by the peek succeeding (matching.h-style
 	// belt-and-suspenders: a peek is a preview, never a substitute for Load's own checks).
-	const bool bCommitted = bSecondSlot
-		? OpenSecondScratchArchiveFromBytes(Bytes, DisplayName)
+	const bool bCommitted = bComparisonSlot
+		? OpenComparisonScratchArchiveFromBytes(Bytes, DisplayName)
 		: OpenScratchArchiveFromBytes(Bytes, DisplayName);
 	if (!bCommitted)
 	{
@@ -1310,6 +1508,9 @@ void SSuperFAISSBankInspector::OnBankSelected()
 	PrimaryArchive.Reset();
 	ProjectedPoints.Reset();
 	ProjectionStatus.Reset();
+	// The last query text names a row of the previous source; a λ/K change must not re-run it
+	// against this one.
+	LastQueryText.Reset();
 	// Section 25.3 "Cache lifetime is per-widget-session, invalidated on selection
 	// change": Structure/Novelty follow the same reset the projection already gets.
 	InvalidateAnalysisCaches();
@@ -1489,7 +1690,36 @@ FString SSuperFAISSBankInspector::SourceHeaderLine() const
 		Source.GetChannelCount());
 }
 
-FReply SSuperFAISSBankInspector::OnOpenArchiveClicked(bool bSecondSlot)
+// D-INSP-36 / plan §7.2: the shared identity block. Static and side-effect-free -- a pure
+// function of the two sources handed to it, not of which feature (Correspondence today,
+// Drift once built) is asking. Renders both banks' display name, live row count, dims,
+// metric, and quantization side by side, so a reader can always tell which two banks a
+// displayed number actually came from without cross-referencing the pickers above it.
+// Distinct from SourceHeaderLine(): that is the PRIMARY-only metadata line, asset-shape-
+// aware (it keeps BankInfoLine()'s per-channel accounting for an asset); this is a
+// symmetric two-source summary, the same shape for either side regardless of asset vs.
+// archive kind, matching what SourceHeaderLine() already reports for an archive source
+// (T-07's own format, extended to two sources at once).
+FString SSuperFAISSBankInspector::BuildComparisonIdentityBlock(
+	const FSuperFAISSInspectionSource& PrimarySource, const FSuperFAISSInspectionSource& ComparisonSource)
+{
+	const auto Describe = [](const FSuperFAISSInspectionSource& Source) -> FString
+	{
+		if (!Source.IsValid())
+		{
+			return TEXT("none selected");
+		}
+		return FString::Printf(TEXT("%s: %d x %d (live %d), metric %s, quant %s"),
+			*Source.DisplayName(), Source.GetCount(), Source.GetDims(), Source.GetLiveCount(),
+			*StaticEnum<ESuperFAISSBankMetric>()->GetNameStringByValue(static_cast<int64>(Source.GetMetric())),
+			*StaticEnum<ESuperFAISSBankQuantization>()->GetNameStringByValue(
+				static_cast<int64>(Source.GetQuantization())));
+	};
+	return FString::Printf(TEXT("Primary — %s | Comparison — %s"),
+		*Describe(PrimarySource), *Describe(ComparisonSource));
+}
+
+FReply SSuperFAISSBankInspector::OnOpenArchiveClicked(bool bComparisonSlot)
 {
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (DesktopPlatform == nullptr)
@@ -1527,11 +1757,11 @@ FReply SSuperFAISSBankInspector::OnOpenArchiveClicked(bool bSecondSlot)
 	TArray<uint8> Bytes;
 	if (!FFileHelper::LoadFileToArray(Bytes, *OutFiles[0]))
 	{
-		(bSecondSlot ? SecondArchive.OpenStatus : PrimaryArchive.OpenStatus) = TEXT("archive: failed to read file");
+		(bComparisonSlot ? ComparisonArchive.OpenStatus : PrimaryArchive.OpenStatus) = TEXT("archive: failed to read file");
 		return FReply::Handled();
 	}
 
-	PeekAndOpenArchive(Bytes, FPaths::GetCleanFilename(OutFiles[0]), bSecondSlot);
+	PeekAndOpenArchive(Bytes, FPaths::GetCleanFilename(OutFiles[0]), bComparisonSlot);
 	return FReply::Handled();
 }
 
@@ -1676,9 +1906,106 @@ bool SSuperFAISSBankInspector::QuerySource(const FSuperFAISSInspectionSource& So
 	return false;
 }
 
+float SSuperFAISSBankInspector::GetL2ScaleForPrimary(const FSuperFAISSInspectionSource& Source)
+{
+	using namespace superfaiss;
+	if (bL2ScaleCached)
+	{
+		return CachedL2Scale;
+	}
+
+	// §9.1a: L = sqrt(Spread(current)) over the primary source's LIVE rows -- the same
+	// operator, reduction, and tombstone threading drift's own Spread(current) uses (§8.1,
+	// §8.8), whole-row regardless of the analysis-scope combo.
+	const BankView View = Source.GetBankView();
+	const TArray<uint32> Tombstones = Source.GetTombstoneWords();
+	if (View.quant != Quantization::Int8)
+	{
+		// Float32 (D-SLM7840): SpreadCrossDevice is int8-only, so the same quantity -- the
+		// mean squared L2 distance from each live row to the live rows' centroid -- is
+		// computed directly over the float rows, in double. Per-device; no bit-identity claim.
+		const float* Rows = static_cast<const float*>(View.rows);
+		auto IsLive = [&Tombstones](int32 R)
+		{
+			return !(Tombstones.IsValidIndex(R / 32) && (Tombstones[R / 32] & (1u << (R % 32))) != 0);
+		};
+		TArray<double> Centroid;
+		Centroid.SetNumZeroed(View.dims);
+		int32 Live = 0;
+		for (int32 R = 0; R < View.count; ++R)
+		{
+			if (!IsLive(R)) { continue; }
+			const float* Row = Rows + static_cast<int64>(R) * View.paddedDims;
+			for (int32 D = 0; D < View.dims; ++D) { Centroid[D] += Row[D]; }
+			++Live;
+		}
+		double SpreadF = 0.0;
+		if (Live > 0)
+		{
+			for (double& C : Centroid) { C /= Live; }
+			for (int32 R = 0; R < View.count; ++R)
+			{
+				if (!IsLive(R)) { continue; }
+				const float* Row = Rows + static_cast<int64>(R) * View.paddedDims;
+				for (int32 D = 0; D < View.dims; ++D)
+				{
+					const double Diff = Row[D] - Centroid[D];
+					SpreadF += Diff * Diff;
+				}
+			}
+			SpreadF /= Live;
+		}
+		CachedL2Scale = SpreadF > 0.0 ? static_cast<float>(FMath::Sqrt(SpreadF)) : 0.0f;
+		bL2ScaleCached = true;
+		return CachedL2Scale;
+	}
+
+	TArray<int32> RowIndices;
+	RowIndices.SetNumUninitialized(View.count);
+	for (int32 i = 0; i < RowIndices.Num(); ++i)
+	{
+		RowIndices[i] = i;
+	}
+	TArray<int8, TAlignedHeapAllocator<16>> Scratch;
+	Scratch.SetNumUninitialized(FMath::Max(View.paddedDims, 1));
+
+	float Spread = 0.0f;
+	const Status St = SpreadCrossDevice(View, RowIndices.GetData(), RowIndices.Num(),
+		Tombstones.Num() ? Tombstones.GetData() : nullptr, Reduce::Mean, Scratch.GetData(), &Spread);
+
+	// §6.2's zero-scale guard: L = 0 exactly when Spread(current) = 0 (a single live row, or
+	// all live rows identical). A non-Ok status (e.g. no live rows at all) leaves no scale to
+	// measure against either, and takes the same refusal.
+	CachedL2Scale = (St == Status::Ok && Spread > 0.0f)
+		? static_cast<float>(FMath::Sqrt(static_cast<double>(Spread)))
+		: 0.0f;
+	bL2ScaleCached = true;
+	return CachedL2Scale;
+}
+
+void SSuperFAISSBankInspector::OnDiversityControlChanged()
+{
+	// A λ or K change re-runs the query on display, so the rows, their relevance/redundancy
+	// numbers, and the note slot always describe the controls' current values. Nothing to do
+	// before the first query has resolved.
+	if (!LastQueryText.IsEmpty())
+	{
+		RunQuery(LastQueryText);
+	}
+}
+
 void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 {
 	ResultLines.Reset();
+	// §9: every query rebuilds the displayed diversity state from scratch -- nothing (array
+	// sizes, a prior refusal, a prior selection) carries over from the previous query.
+	DiversityResult = FSuperFAISSDiversityResult();
+#if WITH_DEV_AUTOMATION_TESTS
+	// §9.7: the segment-list override is consumed by this query, whatever path it takes.
+	const TArray<superfaiss::QuerySegment> SegmentOverride = MoveTemp(DiversitySegmentOverrideForTest);
+	DiversitySegmentOverrideForTest.Reset();
+#endif
+
 	// SF34-003: source-generalized (asset OR archive) via MakeCentroidQueryForSource/
 	// QuerySource, defined just above.
 	const FSuperFAISSInspectionSource Source = GetPrimarySource();
@@ -1708,8 +2035,45 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 		}
 		else
 		{
+			// The query resolved: remember it so a λ or K change re-runs it, and record the λ
+			// this result is computed at (the note slot describes the displayed result).
+			LastQueryText = Text;
+			DiversityResult.bHasResult = true;
+			DiversityResult.ComputedLambda = DiversityLambda;
+
+			// §9.2: the single point the widget-held K is read. Clamped to [1, kHardQueryKCap]
+			// here, whichever writer set it (the self-clamping spin box, or SetQueryKForTest,
+			// which deliberately does not clamp) -- before K sizes the over-fetch or
+			// SelectDiverseMMR's output arrays.
+			const int32 K = FMath::Clamp(QueryK, 1, kHardQueryKCap);
+			const superfaiss::BankView View = Source.GetBankView();
+
+			// Diversity runs on every query, at every λ -- the λ = 1 identity is a property of
+			// SelectDiverseMMR's formula, not a branch that skips it (§9.4, §9.5a). The one
+			// whole-panel refusal is decided here, before any candidate pool is over-fetched:
+			// Metric::L2 with L = 0 (§6.2's zero-scale guard, §9.1a), refused for λ < 1; at
+			// λ = 1 the plain ranking IS the diversified result (redundancy carries weight
+			// zero), so it renders without calling the kernel on a scale it cannot divide by.
+			bool bRunKernel = true;
+			float L2Scale = 0.0f;
+			if (View.metric == superfaiss::Metric::L2)
+			{
+				L2Scale = GetL2ScaleForPrimary(Source);
+				if (L2Scale == 0.0f)
+				{
+					bRunKernel = false;
+					if (DiversityLambda < 1.0f)
+					{
+						DiversityResult.bWholePanelRefusal = true;
+						DiversityResult.WholePanelRefusalText = DiversityL2ZeroScaleRefusalNote();
+					}
+				}
+			}
+
 			FSuperFAISSQueryArgs Args;
-			Args.K = 12;
+			// §9.3: the candidate pool is K x a fixed multiplier, read from this same query --
+			// one Args, one channel binding, no second independently-resolved query.
+			Args.K = bRunKernel ? K * kDiversityPoolMultiplier : K;
 			// Channel banks query by name with the slider weights — the same list
 			// DecomposeHit explains below.
 			const int32 ChannelCount = Source.GetChannelCount();
@@ -1721,18 +2085,217 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 					Args.Channels.Add({Source.GetChannelName(C), ChannelWeights[C]});
 				}
 			}
+			// The queried row is never its own result (D-SLM7837): excluded from the plain
+			// list and the diversity pool alike, so the λ = 1 identity still holds, and the
+			// first diversified pick is never the query itself -- whose redundancy against
+			// every later candidate would equal that candidate's relevance. The same
+			// full-bank self-exclusion ProbeNovelty applies (V32-G7); an archive source ORs
+			// it with its tombstones inside QueryScratch.
+			TArray<uint32> ExcludeSelf;
+			ExcludeSelf.SetNumZeroed(FMath::DivideAndRoundUp(Source.GetCount(), 32));
+			ExcludeSelf[Row / 32] |= (1u << (Row % 32));
+			Args.ExcludeBits = ExcludeSelf;
 			TArray<FSuperFAISSHit> Hits;
 			if (!QuerySource(Source, Query, Args, Hits))
 			{
 				ResultLines.Add(MakeShared<FString>(TEXT("query failed")));
+				Hits.Reset();
 			}
-			for (const FSuperFAISSHit& Hit : Hits)
+
+			// §9.2's second clamp: SelectDiverseMMR's precondition is k <= candidateCount, and
+			// the pool's actually-returned size is smaller than K x multiplier on any bank with
+			// fewer live rows than that.
+			const int32 CandidateCount = Hits.Num();
+			const int32 SelectK = FMath::Min(K, CandidateCount);
+
+			if (bRunKernel && SelectK >= 1)
 			{
+				// Each candidate's relevance is its own score from the pool query (§6.2), and
+				// its XdQuery payload is its row as an int8 cross-device image -- the operand
+				// ScoreXdPairSegmented scores against already-selected members.
+				//  - Int8 bank: the row's own stored image and scale, so each redundancy score
+				//    is cross-device exact. The selection is still per-device: relevance is
+				//    the per-device pool query's Hit.Score (plan §12 dim 6: deterministic
+				//    within the tier its inputs carry).
+				//  - Float32 bank (D-SLM7840): the row is lifted to an int8 image with the
+				//    query-side quantizer (QuantizeQueryXd). Redundancy is then an int8
+				//    approximation, per-device, with no bit-identity claim. On a channelled
+				//    bank each channel is copied to its own range on the int8 16-element grid
+				//    (Float32 channel offsets sit on a 4-element grid), so the segment list
+				//    below addresses the lifted layout; gaps between channels are not copied,
+				//    because no segment reads them.
+				const bool bInt8 = View.quant == superfaiss::Quantization::Int8;
+				TArray<int32> LiftedChannelOffsets;
+				int32 PayloadPaddedDims = View.paddedDims;
+				if (!bInt8)
+				{
+					if (bChannels)
+					{
+						int32 Offset = 0;
+						for (int32 C = 0; C < ChannelCount; ++C)
+						{
+							LiftedChannelOffsets.Add(Offset);
+							Offset += FMath::DivideAndRoundUp(View.channels[C].length, 16) * 16;
+						}
+						PayloadPaddedDims = FMath::Max(Offset, 16);
+					}
+					else
+					{
+						PayloadPaddedDims = superfaiss::PaddedDims(View.dims, superfaiss::Quantization::Int8);
+					}
+				}
+
+				TArray<superfaiss::Hit> Candidates;
+				TArray<superfaiss::XdQuery> CandidateQueries;
+				TArray<int8, TAlignedHeapAllocator<16>> LiftedImages;
+				TArray<float, TAlignedHeapAllocator<16>> LiftStaging;
+				Candidates.SetNumUninitialized(CandidateCount);
+				CandidateQueries.SetNumUninitialized(CandidateCount);
+				if (!bInt8)
+				{
+					LiftedImages.SetNumZeroed(CandidateCount * PayloadPaddedDims);
+					LiftStaging.SetNumUninitialized(PayloadPaddedDims);
+				}
+				for (int32 Pos = 0; Pos < CandidateCount; ++Pos)
+				{
+					const int32 RowIndex = Hits[Pos].Index;
+					Candidates[Pos].index = RowIndex;
+					Candidates[Pos].score = Hits[Pos].Score;
+					if (bInt8)
+					{
+						const int8* RowBytes = static_cast<const int8*>(View.rows) +
+							static_cast<int64>(RowIndex) * View.paddedDims;
+						int64 SqSum = 0;
+						for (int32 D = 0; D < View.paddedDims; ++D)
+						{
+							SqSum += static_cast<int64>(RowBytes[D]) * RowBytes[D];
+						}
+						CandidateQueries[Pos].q8 = RowBytes;
+						CandidateQueries[Pos].scale = static_cast<double>(View.scales[RowIndex]);
+						CandidateQueries[Pos].sqSum = SqSum;
+					}
+					else
+					{
+						const float* RowFloats = static_cast<const float*>(View.rows) +
+							static_cast<int64>(RowIndex) * View.paddedDims;
+						FMemory::Memzero(LiftStaging.GetData(), PayloadPaddedDims * sizeof(float));
+						if (bChannels)
+						{
+							for (int32 C = 0; C < ChannelCount; ++C)
+							{
+								FMemory::Memcpy(LiftStaging.GetData() + LiftedChannelOffsets[C],
+									RowFloats + View.channels[C].offset, View.channels[C].length * sizeof(float));
+							}
+						}
+						else
+						{
+							FMemory::Memcpy(LiftStaging.GetData(), RowFloats, View.dims * sizeof(float));
+						}
+						int8* Image = LiftedImages.GetData() + static_cast<int64>(Pos) * PayloadPaddedDims;
+						double Scale = 0.0;
+						int64_t SqSum = 0;
+						superfaiss::QuantizeQueryXd(LiftStaging.GetData(), PayloadPaddedDims, Image, &Scale, &SqSum);
+						CandidateQueries[Pos].q8 = Image;
+						CandidateQueries[Pos].scale = Scale;
+						CandidateQueries[Pos].sqSum = SqSum;
+					}
+				}
+
+				// §9.1 / P-11: the query's own channel binding, resolved to the segment list
+				// the retrieval query itself used (the bank's channel ranges, the slider
+				// weights, ascending by offset -- ResolveSegments' own construction; on a
+				// Float32 bank, the same channels at their lifted offsets). A channelless bank
+				// passes none: SelectDiverseMMR's degenerate whole-row path.
+				TArray<superfaiss::QuerySegment> Segments;
+				if (bChannels)
+				{
+					for (int32 C = 0; C < ChannelCount; ++C)
+					{
+						superfaiss::QuerySegment Segment;
+						Segment.offset = bInt8 ? View.channels[C].offset : LiftedChannelOffsets[C];
+						// Lifted ranges are padded with zeros to the int8 grid, which adds nothing
+						// to a dot product, a distance, or a norm.
+						Segment.length = bInt8 ? View.channels[C].length
+							: FMath::DivideAndRoundUp(View.channels[C].length, 16) * 16;
+						Segment.weight = ChannelWeights[C];
+						Segments.Add(Segment);
+					}
+					Segments.Sort([](const superfaiss::QuerySegment& A, const superfaiss::QuerySegment& B) { return A.offset < B.offset; });
+				}
+#if WITH_DEV_AUTOMATION_TESTS
+				if (SegmentOverride.Num() > 0)
+				{
+					Segments = SegmentOverride;
+				}
+#endif
+
+				TArray<int32> OutSelected;
+				TArray<float> OutRelevance;
+				TArray<float> OutRedundancy;
+				OutSelected.SetNumZeroed(SelectK);
+				OutRelevance.SetNumZeroed(SelectK);
+				OutRedundancy.SetNumZeroed(SelectK);
+				TArray<double> RedundancyScratch;
+				RedundancyScratch.SetNumUninitialized(CandidateCount);
+				const superfaiss::Status MmrStatus = superfaiss::SelectDiverseMMR(Candidates.GetData(), CandidateQueries.GetData(),
+					CandidateCount, PayloadPaddedDims, View.metric, DiversityLambda, SelectK,
+					Segments.Num() ? Segments.GetData() : nullptr, Segments.Num(),
+					View.metric == superfaiss::Metric::L2 ? L2Scale : 0.0f, RedundancyScratch.GetData(),
+					OutSelected.GetData(), OutRelevance.GetData(), OutRedundancy.GetData());
+				if (MmrStatus == superfaiss::Status::Ok)
+				{
+					DiversityResult.SelectedIndices = MoveTemp(OutSelected);
+					DiversityResult.Relevance = MoveTemp(OutRelevance);
+					DiversityResult.Redundancy = MoveTemp(OutRedundancy);
+					DiversityResult.bKernelSelection = true;
+				}
+				else
+				{
+					// §9.5a (D-INSP-60, Option A): a mid-selection refusal. The partially
+					// written buffers are discarded, never read; the rendered ranking is the
+					// pool's own relevance order, filled below.
+					DiversityResult.bMidSelectionRefusal = true;
+				}
+			}
+
+			if (!DiversityResult.bKernelSelection)
+			{
+				// The plain relevance-ranked result: the first SelectK entries of the pool, in
+				// the retrieval query's own order. Relevance is each entry's own pool score;
+				// redundancy is 0 -- nothing was computed (§9.5a's convention).
+				for (int32 Pos = 0; Pos < SelectK; ++Pos)
+				{
+					DiversityResult.SelectedIndices.Add(Pos);
+					DiversityResult.Relevance.Add(Hits[Pos].Score);
+					DiversityResult.Redundancy.Add(0.0f);
+				}
+			}
+			DiversityResult.PoolHits = MoveTemp(Hits);
+
+			// §9.5: relevance and redundancy render beside a row only when the kernel
+			// produced them and the slider is below 1.0.
+			const bool bShowDiversityNumbers = DiversityResult.bKernelSelection && DiversityResult.ComputedLambda < 1.0f;
+			const int32 ShownCount = DiversityResult.SelectedIndices.Num();
+			for (int32 Step = 0; Step < ShownCount; ++Step)
+			{
+				const FSuperFAISSHit& Hit = DiversityResult.PoolHits[DiversityResult.SelectedIndices[Step]];
+				// The margin is the gap to the next row SHOWN (compose.h's Margin: better minus
+				// runner-up, in the metric's own direction), not to the next hit in the
+				// over-fetched pool; the last row shown has none. At λ = 1 the shown order is the
+				// pool order, so this equals the plain K-result query's margins; below 1 it can
+				// be negative, because the next row shown can be more relevant.
+				float ShownMargin = 0.0f;
+				if (Step + 1 < ShownCount)
+				{
+					const FSuperFAISSHit& Next = DiversityResult.PoolHits[DiversityResult.SelectedIndices[Step + 1]];
+					ShownMargin = superfaiss::Margin(superfaiss::Hit{Hit.Index, Hit.Score},
+						superfaiss::Hit{Next.Index, Next.Score}, View.metric);
+				}
 				FString Line = FString::Printf(
 					TEXT("%-24s  score %.4f   margin %.4f"),
 					Hit.Id.IsNone() ? *FString::Printf(TEXT("#%d"), Hit.Index)
 					                : *Hit.Id.ToString(),
-					Hit.Score, Hit.Margin);
+					Hit.Score, ShownMargin);
 
 				// Decomposition bars: contributions sum exactly to the score. Asset-kind
 				// only -- DecomposeHit has no scratch-bank equivalent (the SAME asymmetry
@@ -1771,6 +2334,13 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 							*ContributionBar(Contributions[C], MaxAbs),
 							Contributions[C], *Cosine);
 					}
+				}
+				if (bShowDiversityNumbers)
+				{
+					// Read straight from SelectDiverseMMR's outRelevance/outRedundancy (§9.5),
+					// never recomputed here.
+					Line += FString::Printf(TEXT("   relevance %.4f   redundancy %.4f"),
+						DiversityResult.Relevance[Step], DiversityResult.Redundancy[Step]);
 				}
 				ResultLines.Add(MakeShared<FString>(MoveTemp(Line)));
 			}
@@ -1889,14 +2459,23 @@ void SSuperFAISSBankInspector::InvalidateAnalysisCaches()
 	MatchPairResults.Reset();
 	MatchPairDisplayLines.Reset();
 	CorrespondenceStatus.Reset();
+	// V3.4 plan §8.6: the SAME coarse rule extends to Drift -- primary re-select,
+	// analysis-scope change (both already routed through this function above), and
+	// comparison-bank change (OnComparisonBankSelected(), below) all clear DriftResult too.
+	DriftResult = FSuperFAISSDriftResult();
+	// V3.4 plan §9.1a: diversity's cached Metric::L2 scale L is keyed to the primary source;
+	// the same coarse rule clears it, so the next λ < 1 query recomputes it from whatever the
+	// primary source now is.
+	bL2ScaleCached = false;
+	CachedL2Scale = 0.0f;
 	RebuildStructureClusterList(); // UI-only, but stale iff StructureClusters is
 	// Slot 4b (audit F3): this SAME one-rule clear is now also reached by
-	// OpenScratchArchiveFromBytes()/OpenSecondScratchArchiveFromBytes() on a successful
+	// OpenScratchArchiveFromBytes()/OpenComparisonScratchArchiveFromBytes() on a successful
 	// open — the NEW archive-swap leg of the reset matrix. Archive #1's exclusion/
 	// tombstone state and live-row sample never survive into archive #2's passes because
 	// there is no separate "archive" path here at all: opening an archive is just another
 	// selection-change event routed through this same function, exactly like
-	// OnBankSelected()/OnSecondBankSelected()/a scope change.
+	// OnBankSelected()/OnComparisonBankSelected()/a scope change.
 }
 
 void SSuperFAISSBankInspector::RebuildStructureClusterList()
@@ -2980,9 +3559,9 @@ void SSuperFAISSBankInspector::ProbeNovelty(const FString& Text)
 
 // ---------------------------------------------------------------------------
 // V3.2 plan section 25.5 — View C (Correspondence), slot 4, CLOSED GREEN. The
-// second-bank compatibility check (CheckSecondBankCompatible, above) is plain field
+// comparison-bank compatibility check (CheckComparisonBankCompatible, above) is plain field
 // comparisons already available on USuperFAISSVectorBank (the same reasoning already
-// applied to RefreshSecondBankList/GetSelectedSecondBank). The compute wires
+// applied to RefreshComparisonBankList/GetSelectedComparisonBank). The compute wires
 // BuildAnalysisSample's A-side sample plus full B/A views (BuildAnalysisSample again,
 // called with each bank's own live Count as the limit — ceiling-division sampling is
 // the identity permutation when SampleCount == Full.count, so no second
@@ -2998,7 +3577,7 @@ void SSuperFAISSBankInspector::ProbeNovelty(const FString& Text)
 // checked"): on a successful compute the status is `"<checked> of <A.Count> A-rows
 // checked, <unmatchedA> unmatched (A), <unmatchedB> unmatched (B)<mixed-quant
 // suffix>"`, where `<mixed-quant suffix>` is `", mixed quantization"` when the primary
-// and second bank's Quantization differ ("a mixed pair is disclosed in the
+// and comparison bank's Quantization differ ("a mixed pair is disclosed in the
 // status line") and empty otherwise. Unmatched-B is counted as distinct B indices that
 // never appear as a matched partner (a stated forced reading — the plan does not
 // itself define the B-side term).
@@ -3013,16 +3592,34 @@ void SSuperFAISSBankInspector::ProbeNovelty(const FString& Text)
 FString SSuperFAISSBankInspector::GetPendingCorrespondenceDisclosure() const
 {
 	const FSuperFAISSInspectionSource PrimarySource = GetPrimarySource();
-	const FSuperFAISSInspectionSource SecondSource = GetSecondSource();
+	const FSuperFAISSInspectionSource ComparisonSource = GetComparisonSource();
 	if (PrimarySource.Kind == FSuperFAISSInspectionSource::EKind::None
-		|| SecondSource.Kind == FSuperFAISSInspectionSource::EKind::None)
+		|| ComparisonSource.Kind == FSuperFAISSInspectionSource::EKind::None)
 	{
 		return FString();
 	}
 
 	return FString::Printf(
 		TEXT("HEAVY pass -- cost scales with both banks' sizes (%d live x %d live)"),
-		PrimarySource.GetLiveCount(), SecondSource.GetLiveCount());
+		PrimarySource.GetLiveCount(), ComparisonSource.GetLiveCount());
+}
+
+// V3.4 plan §8.5: the drift trigger's own pre-run disclosure, mirroring
+// GetPendingCorrespondenceDisclosure()'s wording exactly -- drift's compute is the same
+// population-sized-cost shape (§8.5: "the same shape as Correspondence's match pass").
+FString SSuperFAISSBankInspector::GetPendingDriftDisclosure() const
+{
+	const FSuperFAISSInspectionSource PrimarySource = GetPrimarySource();
+	const FSuperFAISSInspectionSource ComparisonSource = GetComparisonSource();
+	if (PrimarySource.Kind == FSuperFAISSInspectionSource::EKind::None
+		|| ComparisonSource.Kind == FSuperFAISSInspectionSource::EKind::None)
+	{
+		return FString();
+	}
+
+	return FString::Printf(
+		TEXT("HEAVY pass -- cost scales with both banks' sizes (%d live x %d live)"),
+		PrimarySource.GetLiveCount(), ComparisonSource.GetLiveCount());
 }
 
 void SSuperFAISSBankInspector::ComputeCorrespondence()
@@ -3048,9 +3645,9 @@ void SSuperFAISSBankInspector::ComputeCorrespondence()
 		return;
 	}
 
-	const FSuperFAISSInspectionSource SecondSource = GetSecondSource();
+	const FSuperFAISSInspectionSource ComparisonSource = GetComparisonSource();
 	FString RejectReason;
-	if (!CheckSecondBankCompatible(PrimarySource, SecondSource, RejectReason))
+	if (!CheckComparisonBankCompatible(PrimarySource, ComparisonSource, RejectReason))
 	{
 		// dim-5 audit N-3, the late-rejection UI contract: MatchPairResults was already
 		// Reset() above, unconditionally, before this check ran — a rejection never
@@ -3117,7 +3714,7 @@ void SSuperFAISSBankInspector::ComputeCorrespondence()
 			// view identity, not construction-time discharge) — a tombstoned row must
 			// stay IN the view, at its native index, so ExcludeBitsFullB/A (computed
 			// below, in that same native space) land on the right row.
-			if (!BuildAnalysisSample(SecondSource, SecondSource.GetCount(), PayloadFullB, ScalesFullB,
+			if (!BuildAnalysisSample(ComparisonSource, ComparisonSource.GetCount(), PayloadFullB, ScalesFullB,
 					ViewFullB, SourceIndicesFullB, /*bSkipTombstonedRows*/ false,
 					&ZeroEnergyExcludedFullB, &ZeroEnergyBitsFullB) ||
 				!BuildAnalysisSample(PrimarySource, PrimarySource.GetCount(), PayloadFullA, ScalesFullA,
@@ -3137,7 +3734,7 @@ void SSuperFAISSBankInspector::ComputeCorrespondence()
 			// an asset source (GetTombstoneWords() is empty there — a no-op OR), real
 			// tombstone words for an archive. Declared outside the lambda so the data
 			// pointers MutualNearestMatches reads stay alive through the call.
-			ExcludeBitsFullB = SecondSource.GetTombstoneWords();
+			ExcludeBitsFullB = ComparisonSource.GetTombstoneWords();
 			ExcludeBitsFullA = PrimarySource.GetTombstoneWords();
 			// Finding 6: the zero-energy leg of the SAME OR, in the SAME native index
 			// space -- a channel-scoped Cosine zero-energy row is excluded from matching
@@ -3221,10 +3818,10 @@ void SSuperFAISSBankInspector::ComputeCorrespondence()
 	// the SAME merged bit array MutualNearestMatches itself was called against above, so
 	// the denominator and the actual exclusion are the same fact, never two numbers that
 	// could drift.
-	const int32 MatchableB = SecondSource.GetCount() - CountExcludedBits(ExcludeBitsFullB);
+	const int32 MatchableB = ComparisonSource.GetCount() - CountExcludedBits(ExcludeBitsFullB);
 	const int32 MatchableA = PrimarySource.GetCount() - CountExcludedBits(ExcludeBitsFullA);
 	const int32 UnmatchedB = MatchableB - MatchedBIndices.Num();
-	const bool bMixedQuantization = PrimarySource.GetQuantization() != SecondSource.GetQuantization();
+	const bool bMixedQuantization = PrimarySource.GetQuantization() != ComparisonSource.GetQuantization();
 	// This status line is a POST-run result and is pinned exactly by
 	// InspectorCorrespondenceLiveCountDenominators and
 	// InspectorCorrespondenceZeroEnergyDenominators. T-06's HEAVY-pass disclosure does not
@@ -3249,6 +3846,343 @@ void SSuperFAISSBankInspector::ComputeCorrespondence()
 	}
 }
 
+// ---------------------------------------------------------------------------
+// V3.4 plan §8: the drift panel. Reads GetPrimarySource() ("current") and
+// GetComparisonSource() ("baseline", §7) through the four vendored analytics.h operators
+// directly (P-2/P-2a) -- no BuildAnalysisSample construction: drift is a whole-population
+// pass over every live row (mirrors ComputeCorrespondence()'s full-view identity legs, not
+// its sample-scoped A-side leg), and the channel-scoped analytics.h operators recompute
+// their own sub-range Cosine self-dot internally from the bank's own channel table (§8.1's
+// P-2a comment; analytics.h's channel-scoped-operators header comment: "does NOT read the
+// per-row channelInvNorms"), so no caller-side renormalization is needed the way
+// BuildAnalysisSample's sample construction needs for kernels.h's plain Cosine kernel.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+	// §8.3.1: the composed, DISPLAYED ratio -- computed in double precision to match the
+	// executed reference derivation this fold's own fixtures were pinned against exactly
+	// (a standalone derivation probe/
+	// `fixtureC_mutation_probe.cpp` both promote the float32 operator outputs to double,
+	// divide, and (L2 only) sqrt in double before narrowing back to float for the fixtures'
+	// own Expected column) -- a float32-only composition is not guaranteed bit-identical to
+	// that reference and is not used here.
+	float ComposeDriftRatio(ESuperFAISSBankMetric Metric, float Numerator, float Denominator)
+	{
+		const double R = static_cast<double>(Numerator) / static_cast<double>(Denominator);
+		const double Spec = (Metric == ESuperFAISSBankMetric::L2) ? FMath::Sqrt(R) : R;
+		return static_cast<float>(Spec);
+	}
+
+	// §8.7: primary and comparison resolve to the SAME underlying bank object -- the same
+	// UAsset pointer for two asset sources, or the same loaded archive bank pointer for two
+	// archive sources (the class comment's own definition, FSuperFAISSInspectionSource).
+	bool IsDriftSelfComparison(const FSuperFAISSInspectionSource& A, const FSuperFAISSInspectionSource& B)
+	{
+		if (A.Kind != B.Kind)
+		{
+			return false;
+		}
+		if (A.Kind == FSuperFAISSInspectionSource::EKind::Asset)
+		{
+			return A.Asset.IsValid() && B.Asset.IsValid() && A.Asset.Get() == B.Asset.Get();
+		}
+		if (A.Kind == FSuperFAISSInspectionSource::EKind::Archive)
+		{
+			return A.ArchiveBank.IsValid() && B.ArchiveBank.IsValid()
+				&& A.ArchiveBank.Get() == B.ArchiveBank.Get();
+		}
+		return false;
+	}
+
+	// §7.2/§8.9 (dim-7 G-31): the drift result's own copy of the shared identity block's
+	// field values (BuildComparisonIdentityBlock() renders the same facts as one string for
+	// the picker area above the panel; this is the same facts as struct fields for the test
+	// seam and the panel's own per-field bindings).
+	FSuperFAISSDriftIdentityRecord BuildDriftIdentity(
+		const FSuperFAISSInspectionSource& Primary, const FSuperFAISSInspectionSource& Comparison)
+	{
+		FSuperFAISSDriftIdentityRecord Identity;
+		Identity.PrimaryDisplayName = Primary.DisplayName();
+		Identity.PrimaryLiveRowCount = Primary.GetLiveCount();
+		Identity.PrimaryDims = Primary.GetDims();
+		Identity.PrimaryMetric = StaticEnum<ESuperFAISSBankMetric>()->GetNameStringByValue(
+			static_cast<int64>(Primary.GetMetric()));
+		Identity.PrimaryQuantization = StaticEnum<ESuperFAISSBankQuantization>()->GetNameStringByValue(
+			static_cast<int64>(Primary.GetQuantization()));
+		Identity.ComparisonDisplayName = Comparison.DisplayName();
+		Identity.ComparisonLiveRowCount = Comparison.GetLiveCount();
+		Identity.ComparisonDims = Comparison.GetDims();
+		Identity.ComparisonMetric = StaticEnum<ESuperFAISSBankMetric>()->GetNameStringByValue(
+			static_cast<int64>(Comparison.GetMetric()));
+		Identity.ComparisonQuantization = StaticEnum<ESuperFAISSBankQuantization>()->GetNameStringByValue(
+			static_cast<int64>(Comparison.GetQuantization()));
+		Identity.bSelfComparison = IsDriftSelfComparison(Primary, Comparison);
+		return Identity;
+	}
+}
+
+void SSuperFAISSBankInspector::ComputeDrift()
+{
+	using namespace superfaiss;
+	TRACE_CPUPROFILER_EVENT_SCOPE_ON_CHANNEL(TEXT("SuperFAISS.Inspector.Drift"), SuperFAISS);
+
+	// §8.3.4: every drift compute resets its display state before running -- never the
+	// previous run's stale value survives into a refusal, exactly matching
+	// MatchPairResults'/CorrespondenceStatus's own reset-before-check discipline.
+	DriftResult = FSuperFAISSDriftResult();
+#if WITH_DEV_AUTOMATION_TESTS
+	DriftChunksProcessedForTest = 0;
+#endif
+
+	const FSuperFAISSInspectionSource PrimarySource = GetPrimarySource();       // "current"
+	const FSuperFAISSInspectionSource ComparisonSource = GetComparisonSource(); // "baseline", §7
+	if (!PrimarySource.IsValid() || !ComparisonSource.IsValid())
+	{
+		return;
+	}
+
+	// §8.4: quantization refusal, whole-panel, before any operator runs.
+	const bool bPrimaryInt8 = PrimarySource.GetQuantization() == ESuperFAISSBankQuantization::Int8;
+	const bool bComparisonInt8 = ComparisonSource.GetQuantization() == ESuperFAISSBankQuantization::Int8;
+	if (!bPrimaryInt8 || !bComparisonInt8)
+	{
+		DriftResult.bQuantizationRefusal = true;
+		DriftResult.QuantizationRefusalText = FString::Printf(
+			TEXT("drift requires both banks quantized Int8; %s is Float32"),
+			!bPrimaryInt8 ? TEXT("current") : TEXT("baseline"));
+		return;
+	}
+
+	// §8.4 / D-INSP-42, corrected D-INSP-52: Metric::Dot whole-panel refusal, before any
+	// operator runs.
+	if (PrimarySource.GetMetric() == ESuperFAISSBankMetric::Dot
+		|| ComparisonSource.GetMetric() == ESuperFAISSBankMetric::Dot)
+	{
+		DriftResult.bMetricDotRefusal = true;
+		DriftResult.MetricDotRefusalText = TEXT("drift is not available for Metric::Dot banks -- a raw dot ")
+			TEXT("product has no stable, bank-independent notion of distance to measure movement against.");
+		return;
+	}
+
+	const ESuperFAISSBankMetric DriftMetric = PrimarySource.GetMetric(); // L2 or Cosine, Dot refused above
+
+	// §8.2 / D-INSP-37: Drift reads the shared analysis-scope combo exactly as
+	// Structure/Novelty already do -- when scoped to one channel, the DISPLAYED headline
+	// re-points to that channel's own already-computed per-channel row, below.
+	const FString ScopeName = SelectedProjectionScope.IsValid() ? *SelectedProjectionScope : TEXT("(whole row)");
+	const bool bWholeRowScope = ScopeName == TEXT("(whole row)");
+	const int32 ScopedChannelIndex = bWholeRowScope ? INDEX_NONE : PrimarySource.GetChannelIndex(FName(ScopeName));
+
+	const BankView CurrentView = PrimarySource.GetBankView();
+	const BankView BaselineView = ComparisonSource.GetBankView();
+	const TArray<uint32> ExcludeCurrent = PrimarySource.GetTombstoneWords();   // §8.8
+	const TArray<uint32> ExcludeBaseline = ComparisonSource.GetTombstoneWords(); // §8.8
+
+	TArray<int32> CurrentRowIndices;
+	CurrentRowIndices.SetNumUninitialized(PrimarySource.GetCount());
+	for (int32 i = 0; i < CurrentRowIndices.Num(); ++i) { CurrentRowIndices[i] = i; }
+	TArray<int32> BaselineRowIndices;
+	BaselineRowIndices.SetNumUninitialized(ComparisonSource.GetCount());
+	for (int32 i = 0; i < BaselineRowIndices.Num(); ++i) { BaselineRowIndices[i] = i; }
+
+	TArray<int8, TAlignedHeapAllocator<16>> ScratchA, ScratchB;
+	ScratchA.SetNumUninitialized(FMath::Max(CurrentView.paddedDims, 1));
+	ScratchB.SetNumUninitialized(FMath::Max(BaselineView.paddedDims, 1));
+
+#if WITH_DEV_AUTOMATION_TESTS
+	const auto StagePoll = [this]() {
+		return DebugCancelAfterChunks >= 0 && DriftChunksProcessedForTest >= DebugCancelAfterChunks;
+	};
+#else
+	const auto StagePoll = []() { return false; }; // real cancel: SlowTask.ShouldCancel() inside RunChunked
+#endif
+
+	float WholeMovement = 0.0f, WholeSpreadCurrent = 0.0f, WholeSpreadBaseline = 0.0f;
+	float WholeMeanNN = 0.0f, WholeMaxNN = 0.0f;
+	bool bWholeZeroNormQuery = false;
+	bool bWholeComputed = false;
+	TArray<FSuperFAISSDriftPerChannelResult> ChannelResults;
+
+	const SuperFAISSInspectorSlowTask::FResult ChunkResult = SuperFAISSInspectorSlowTask::RunChunked(
+		FText::FromString(TEXT("Computing drift...")), 1, 1,
+		[&](int32, int32)
+		{
+			// §8.1: the whole-row headline / worst-case / typical set (four operators).
+			Status St;
+			float Movement = 0.0f, SpreadCur = 0.0f, SpreadBase = 0.0f;
+
+			St = CentroidDistanceCrossDevice(
+				CurrentView, CurrentRowIndices.GetData(), CurrentRowIndices.Num(), nullptr,
+				ExcludeCurrent.Num() ? ExcludeCurrent.GetData() : nullptr,
+				BaselineView, BaselineRowIndices.GetData(), BaselineRowIndices.Num(), nullptr,
+				ExcludeBaseline.Num() ? ExcludeBaseline.GetData() : nullptr,
+				CurrentView.metric, ScratchA.GetData(), ScratchB.GetData(), &Movement);
+			if (St == Status::ZeroNormQuery) { bWholeZeroNormQuery = true; }
+			else if (St == Status::Ok)
+			{
+				St = SpreadCrossDevice(CurrentView, CurrentRowIndices.GetData(), CurrentRowIndices.Num(),
+					ExcludeCurrent.Num() ? ExcludeCurrent.GetData() : nullptr, Reduce::Mean,
+					ScratchA.GetData(), &SpreadCur);
+				if (St == Status::ZeroNormQuery) { bWholeZeroNormQuery = true; }
+				else if (St == Status::Ok)
+				{
+					St = SpreadCrossDevice(BaselineView, BaselineRowIndices.GetData(), BaselineRowIndices.Num(),
+						ExcludeBaseline.Num() ? ExcludeBaseline.GetData() : nullptr, Reduce::Mean,
+						ScratchB.GetData(), &SpreadBase);
+					if (St == Status::ZeroNormQuery) { bWholeZeroNormQuery = true; }
+				}
+			}
+
+			if (!bWholeZeroNormQuery && St == Status::Ok)
+			{
+				WholeMovement = Movement;
+				WholeSpreadCurrent = SpreadCur;
+				WholeSpreadBaseline = SpreadBase;
+				bWholeComputed = true;
+
+				// §8.1: directed current -> baseline divergence (worst-case, typical), k=1.
+				TArray<XdQuery> QueryScratch; QueryScratch.SetNumUninitialized(FMath::Max(CurrentView.count, 1));
+				TArray<Hit> HitScratch; HitScratch.SetNumUninitialized(FMath::Max(CurrentView.count, 1));
+				TArray<int32> CountScratch; CountScratch.SetNumUninitialized(FMath::Max(CurrentView.count, 1));
+				Workspace NnWs;
+				NnWs.Reserve(1, 1);
+				float MeanVal = 0.0f, MaxVal = 0.0f;
+				const Status MeanSt = MeanNNCrossDevice(CurrentView,
+					ExcludeCurrent.Num() ? ExcludeCurrent.GetData() : nullptr, BaselineView,
+					ExcludeBaseline.Num() ? ExcludeBaseline.GetData() : nullptr,
+					QueryScratch.GetData(), HitScratch.GetData(), CountScratch.GetData(), NnWs, &MeanVal);
+				const Status MaxSt = MaxNNCrossDevice(CurrentView,
+					ExcludeCurrent.Num() ? ExcludeCurrent.GetData() : nullptr, BaselineView,
+					ExcludeBaseline.Num() ? ExcludeBaseline.GetData() : nullptr,
+					QueryScratch.GetData(), HitScratch.GetData(), CountScratch.GetData(), NnWs, &MaxVal);
+				if (MeanSt == Status::Ok) { WholeMeanNN = MeanVal; }
+				if (MaxSt == Status::Ok) { WholeMaxNN = MaxVal; }
+			}
+
+			// §8.1/P-2a: the per-channel table -- every named channel, always, independent
+			// of the analysis-scope combo (only the headline re-points, §8.2/D-INSP-37).
+			const int32 ChannelCount = PrimarySource.GetChannelCount();
+			for (int32 C = 0; C < ChannelCount; ++C)
+			{
+				FSuperFAISSDriftPerChannelResult ChanResult;
+				ChanResult.ChannelName = PrimarySource.GetChannelName(C);
+
+				float ChanMovement = 0.0f, ChanSpreadCur = 0.0f, ChanSpreadBase = 0.0f;
+				bool bChanZeroNorm = false;
+				Status CSt = CentroidDistanceCrossDeviceChannel(
+					CurrentView, CurrentRowIndices.GetData(), CurrentRowIndices.Num(), nullptr,
+					ExcludeCurrent.Num() ? ExcludeCurrent.GetData() : nullptr,
+					BaselineView, BaselineRowIndices.GetData(), BaselineRowIndices.Num(), nullptr,
+					ExcludeBaseline.Num() ? ExcludeBaseline.GetData() : nullptr,
+					CurrentView.metric, C, ScratchA.GetData(), ScratchB.GetData(), &ChanMovement);
+				if (CSt == Status::ZeroNormQuery) { bChanZeroNorm = true; }
+				else if (CSt == Status::Ok)
+				{
+					CSt = SpreadCrossDeviceChannel(CurrentView, CurrentRowIndices.GetData(), CurrentRowIndices.Num(),
+						ExcludeCurrent.Num() ? ExcludeCurrent.GetData() : nullptr, Reduce::Mean, C,
+						ScratchA.GetData(), &ChanSpreadCur);
+					if (CSt == Status::ZeroNormQuery) { bChanZeroNorm = true; }
+					else if (CSt == Status::Ok)
+					{
+						CSt = SpreadCrossDeviceChannel(BaselineView, BaselineRowIndices.GetData(),
+							BaselineRowIndices.Num(), ExcludeBaseline.Num() ? ExcludeBaseline.GetData() : nullptr,
+							Reduce::Mean, C, ScratchB.GetData(), &ChanSpreadBase);
+						if (CSt == Status::ZeroNormQuery) { bChanZeroNorm = true; }
+					}
+				}
+
+				if (bChanZeroNorm)
+				{
+					ChanResult.bZeroNormQueryRefusal = true; // §8.3.4: whole row reset, nothing else set
+				}
+				else if (CSt == Status::Ok)
+				{
+					ChanResult.Movement = ChanMovement;
+					ChanResult.SpreadCurrent = ChanSpreadCur;
+					ChanResult.SpreadBaseline = ChanSpreadBase;
+					if (ChanSpreadCur == 0.0f)
+					{
+						ChanResult.bZeroDenominatorRefusal = true; // §8.3.3: raw values still render
+					}
+					else
+					{
+						ChanResult.ComposedRatio = ComposeDriftRatio(DriftMetric, ChanMovement, ChanSpreadCur);
+					}
+				}
+				ChannelResults.Add(ChanResult);
+			}
+
+#if WITH_DEV_AUTOMATION_TESTS
+			DriftChunksProcessedForTest = 1;
+#endif
+		},
+		StagePoll);
+
+	if (ChunkResult.bCancelled)
+	{
+		// §8.5/dim 3a: no partial DriftResult survives a cancel.
+		DriftResult = FSuperFAISSDriftResult();
+		DriftResult.bCancelled = true;
+		return;
+	}
+
+	DriftResult.Channels = MoveTemp(ChannelResults);
+	DriftResult.Identity = BuildDriftIdentity(PrimarySource, ComparisonSource);
+
+	if (bWholeZeroNormQuery)
+	{
+		// §8.3.4: the whole-row headline/worst-case/typical block resets together -- their
+		// shared denominator (Spread(current), whole-row) was never produced.
+		DriftResult.bHeadlineZeroNormQueryRefusal = true;
+		return;
+	}
+	if (!bWholeComputed)
+	{
+		// Defensive: an unexpected non-Ok, non-ZeroNormQuery status (e.g. a fully
+		// tombstoned bank driving an empty selection to InvalidArgument, §12 dim 2) leaves
+		// the headline at its reset defaults rather than crashing or fabricating a value.
+		// Not itself a cell Gate 1's red suite exercises for drift; see the build handoff.
+		return;
+	}
+
+	DriftResult.Movement = WholeMovement;
+	DriftResult.SpreadCurrent = WholeSpreadCurrent;
+	DriftResult.SpreadBaseline = WholeSpreadBaseline;
+	DriftResult.MeanNN = WholeMeanNN;
+	DriftResult.MaxNN = WholeMaxNN;
+
+	if (WholeSpreadCurrent == 0.0f)
+	{
+		// §8.3.3: the three whole-row lines share ONE denominator (Spread(current)) -- all
+		// three refuse together; raw values (Movement/MeanNN/MaxNN/both spreads) still render.
+		DriftResult.bHeadlineZeroDenominatorRefusal = true;
+		DriftResult.bWorstCaseZeroDenominatorRefusal = true;
+		DriftResult.bTypicalZeroDenominatorRefusal = true;
+	}
+	else
+	{
+		DriftResult.HeadlineRatio = ComposeDriftRatio(DriftMetric, WholeMovement, WholeSpreadCurrent);
+		DriftResult.WorstCaseRatio = ComposeDriftRatio(DriftMetric, WholeMaxNN, WholeSpreadCurrent);
+		DriftResult.TypicalRatio = ComposeDriftRatio(DriftMetric, WholeMeanNN, WholeSpreadCurrent);
+	}
+
+	// §8.2/D-INSP-37: when the shared analysis-scope combo is scoped to one channel, the
+	// headline movement/spread/ratio re-point to that channel's own already-computed
+	// per-channel row -- worst-case/typical have no channel-scoped equivalent in this
+	// release's own operator list (§8.1) and stay whole-row regardless of scope.
+	if (!bWholeRowScope && DriftResult.Channels.IsValidIndex(ScopedChannelIndex))
+	{
+		const FSuperFAISSDriftPerChannelResult& Scoped = DriftResult.Channels[ScopedChannelIndex];
+		DriftResult.Movement = Scoped.Movement;
+		DriftResult.SpreadCurrent = Scoped.SpreadCurrent;
+		DriftResult.SpreadBaseline = Scoped.SpreadBaseline;
+		DriftResult.HeadlineRatio = Scoped.ComposedRatio;
+		DriftResult.bHeadlineZeroDenominatorRefusal = Scoped.bZeroDenominatorRefusal;
+		DriftResult.bHeadlineZeroNormQueryRefusal = Scoped.bZeroNormQueryRefusal;
+	}
+}
+
 const TCHAR* SSuperFAISSBankInspector::StructureDisclosureCopy()
 {
 	// Section 25.5 View A, verbatim (E-D3-1's designer-answered determinism-tier
@@ -3261,6 +4195,48 @@ const TCHAR* SSuperFAISSBankInspector::DotUnavailableStatus()
 {
 	// Section 25.5 View B, verbatim.
 	return TEXT("novelty verdict unavailable on Dot banks (dot product is not a dissimilarity)");
+}
+
+const TCHAR* SSuperFAISSBankInspector::DiversityIdentityNote()
+{
+	// V3.4 plan §9.4, verbatim.
+	return TEXT("At full relevance, diversity reproduces the plain ranked result exactly.");
+}
+
+const TCHAR* SSuperFAISSBankInspector::DiversityMidSelectionRefusalNote()
+{
+	// V3.4 plan §9.5a (D-INSP-60), verbatim -- one shared note for both refusal triggers.
+	return TEXT("Diversity unavailable for this query: could not evaluate how similar the results are to each "
+		"other. Showing the plain relevance-ranked results instead.");
+}
+
+const TCHAR* SSuperFAISSBankInspector::DiversityL2ZeroScaleRefusalNote()
+{
+	// V3.4 plan §6.2's zero-scale guard, verbatim.
+	return TEXT("diversity is not available: this bank has no internal variation to measure candidates against "
+		"(single live row, or all live rows identical).");
+}
+
+FString SSuperFAISSBankInspector::GetDiversityNoteText() const
+{
+	// The one note slot (§9.5a "Placement and precedence"): a fallback that actually fired
+	// is stated instead of §9.4's identity message, never beside it.
+	if (DiversityResult.bMidSelectionRefusal)
+	{
+		return DiversityMidSelectionRefusalNote();
+	}
+	if (DiversityResult.bWholePanelRefusal)
+	{
+		return DiversityResult.WholePanelRefusalText;
+	}
+	// The identity statement describes the displayed result, so it reads the λ that result was
+	// computed at; before any query it describes what the slider's λ will produce.
+	const float ShownLambda = DiversityResult.bHasResult ? DiversityResult.ComputedLambda : DiversityLambda;
+	if (ShownLambda >= 1.0f)
+	{
+		return DiversityIdentityNote();
+	}
+	return FString();
 }
 
 // T-10 (SF34-007), plan §10.2. Anchor verified against the published branch: the heading
@@ -3331,21 +4307,78 @@ void SSuperFAISSBankInspector::SetBankForTest(USuperFAISSVectorBank* Bank)
 	OnBankSelected();
 }
 
-void SSuperFAISSBankInspector::SetSecondBankForTest(USuperFAISSVectorBank* Bank)
+void SSuperFAISSBankInspector::SetComparisonBankForTest(USuperFAISSVectorBank* Bank)
 {
-	SecondBankNames.Reset();
-	SecondBankAssets.Reset();
+	ComparisonBankNames.Reset();
+	ComparisonBankAssets.Reset();
 	if (Bank != nullptr)
 	{
-		SecondBankNames.Add(MakeShared<FString>(Bank->GetName()));
-		SecondBankAssets.Add(Bank);
-		SelectedSecondBankName = SecondBankNames[0];
+		ComparisonBankNames.Add(MakeShared<FString>(Bank->GetName()));
+		ComparisonBankAssets.Add(Bank);
+		SelectedComparisonBankName = ComparisonBankNames[0];
 	}
 	else
 	{
-		SelectedSecondBankName.Reset();
+		SelectedComparisonBankName.Reset();
 	}
-	OnSecondBankSelected();
+	OnComparisonBankSelected();
+}
+
+// V3.4 plan §8.9: runs ComputeDrift() (the real panel path, never a parallel test-only
+// computation) and returns the DISPLAYED set as a field-for-field copy of DriftResult into
+// §8.9's own contract shape (Fixtures/SuperFAISSDriftDiversityTestContracts.h).
+FSuperFAISSDriftResultForTest SSuperFAISSBankInspector::GetDriftResultForTest()
+{
+	ComputeDrift();
+
+	FSuperFAISSDriftResultForTest Out;
+	Out.bQuantizationRefusal = DriftResult.bQuantizationRefusal;
+	Out.QuantizationRefusalText = DriftResult.QuantizationRefusalText;
+	Out.bMetricDotRefusal = DriftResult.bMetricDotRefusal;
+	Out.MetricDotRefusalText = DriftResult.MetricDotRefusalText;
+	Out.bCancelled = DriftResult.bCancelled;
+
+	Out.Movement = DriftResult.Movement;
+	Out.SpreadCurrent = DriftResult.SpreadCurrent;
+	Out.SpreadBaseline = DriftResult.SpreadBaseline;
+	Out.HeadlineRatio = DriftResult.HeadlineRatio;
+	Out.bHeadlineZeroDenominatorRefusal = DriftResult.bHeadlineZeroDenominatorRefusal;
+	Out.bHeadlineZeroNormQueryRefusal = DriftResult.bHeadlineZeroNormQueryRefusal;
+
+	Out.MaxNN = DriftResult.MaxNN;
+	Out.WorstCaseRatio = DriftResult.WorstCaseRatio;
+	Out.bWorstCaseZeroDenominatorRefusal = DriftResult.bWorstCaseZeroDenominatorRefusal;
+	Out.MeanNN = DriftResult.MeanNN;
+	Out.TypicalRatio = DriftResult.TypicalRatio;
+	Out.bTypicalZeroDenominatorRefusal = DriftResult.bTypicalZeroDenominatorRefusal;
+
+	Out.Channels.Reserve(DriftResult.Channels.Num());
+	for (const FSuperFAISSDriftPerChannelResult& Chan : DriftResult.Channels)
+	{
+		FSuperFAISSDriftPerChannelResultForTest ChanOut;
+		ChanOut.ChannelName = Chan.ChannelName;
+		ChanOut.Movement = Chan.Movement;
+		ChanOut.SpreadCurrent = Chan.SpreadCurrent;
+		ChanOut.SpreadBaseline = Chan.SpreadBaseline;
+		ChanOut.ComposedRatio = Chan.ComposedRatio;
+		ChanOut.bZeroDenominatorRefusal = Chan.bZeroDenominatorRefusal;
+		ChanOut.bZeroNormQueryRefusal = Chan.bZeroNormQueryRefusal;
+		Out.Channels.Add(ChanOut);
+	}
+
+	Out.Identity.PrimaryDisplayName = DriftResult.Identity.PrimaryDisplayName;
+	Out.Identity.PrimaryLiveRowCount = DriftResult.Identity.PrimaryLiveRowCount;
+	Out.Identity.PrimaryDims = DriftResult.Identity.PrimaryDims;
+	Out.Identity.PrimaryMetric = DriftResult.Identity.PrimaryMetric;
+	Out.Identity.PrimaryQuantization = DriftResult.Identity.PrimaryQuantization;
+	Out.Identity.ComparisonDisplayName = DriftResult.Identity.ComparisonDisplayName;
+	Out.Identity.ComparisonLiveRowCount = DriftResult.Identity.ComparisonLiveRowCount;
+	Out.Identity.ComparisonDims = DriftResult.Identity.ComparisonDims;
+	Out.Identity.ComparisonMetric = DriftResult.Identity.ComparisonMetric;
+	Out.Identity.ComparisonQuantization = DriftResult.Identity.ComparisonQuantization;
+	Out.Identity.bSelfComparison = DriftResult.Identity.bSelfComparison;
+
+	return Out;
 }
 
 void SSuperFAISSBankInspector::SetAnalysisScopeForTest(const FString& ScopeName)
@@ -3376,5 +4409,28 @@ void SSuperFAISSBankInspector::SetChannelWeightForTest(int32 ChannelIndex, float
 	{
 		ChannelWeights[ChannelIndex] = Weight;
 	}
+}
+
+// V3.4 plan §9.7: the last query's DISPLAYED selection -- the same DiversityResult the result
+// rows were rendered from, copied into the contract shape (never a parallel computation).
+FSuperFAISSMMRSelectionForTest SSuperFAISSBankInspector::GetLastMMRSelectionForTest() const
+{
+	FSuperFAISSMMRSelectionForTest Out;
+	Out.SelectedIndices = DiversityResult.SelectedIndices;
+	Out.Relevance = DiversityResult.Relevance;
+	Out.Redundancy = DiversityResult.Redundancy;
+	Out.bMidSelectionRefusal = DiversityResult.bMidSelectionRefusal;
+	if (DiversityResult.bMidSelectionRefusal)
+	{
+		Out.MidSelectionRefusalNoteText = GetDiversityNoteText();
+	}
+	// §6.2's whole-panel refusal (D-SLM7850): the panel's own flag, and the note slot's text
+	// only while it is set.
+	Out.bWholePanelRefusal = DiversityResult.bWholePanelRefusal;
+	if (DiversityResult.bWholePanelRefusal)
+	{
+		Out.WholePanelRefusalText = GetDiversityNoteText();
+	}
+	return Out;
 }
 #endif // WITH_DEV_AUTOMATION_TESTS

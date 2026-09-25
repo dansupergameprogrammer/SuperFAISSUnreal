@@ -1,4 +1,18 @@
-SuperFAISS at core master commit e7323f4, tagged v3.3.0. v3.1.2 carried v3.0
+SuperFAISS 3.4.0 at core tag v3.4.0 (commit 68d81aa). Every vendored file
+under include/, src/ and docs/, plus CHANGELOG.md and README.md, is byte-identical to that
+commit, line endings aside.
+
+v3.4.0 delta — diversity (drift-and-diversity plan sections 6, 9):
+- `diversity.h` — `SelectDiverseMMR`, greedy Maximal Marginal Relevance selection over an
+  over-fetched candidate pool, redundancy via `ScoreXdPairSegmented`, L2 ranked on an
+  unrounded double key, ties on ascending bank row. Running redundancy sums in a
+  caller-provided scratch buffer: O(k x pool) pair scores. The L2 pair ratio clamps a
+  negative rounded distance to 0 before the sqrt, and the Dot/Cosine score is combined in
+  double (7170a02, release review).
+- `analytics.h` — `ScoreXdPairSegmented`, `ScoreXdPair` weighted over a segment list.
+- `version.h` — 3.4.0.
+
+History before 3.4 follows. v3.3.0 was core master commit e7323f4. v3.1.2 carried v3.0
 channel-capable scratch banks + channel-scoped analytics + archive v3, v3.1 runtime-mutable
 channel vocabulary (Relabel), v3.1.1 AVX2 float32 dot/L2 sub-8 segment-remainder fix, and
 v3.1.2's own doc/version-header corrections — no kernel or behavior change since v3.1.1.

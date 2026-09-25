@@ -23,3 +23,7 @@
 #include "../../../ThirdParty/SuperFAISS/src/graph.cpp"
 #include "../../../ThirdParty/SuperFAISS/src/novelty.cpp"
 #include "../../../ThirdParty/SuperFAISS/src/matching.cpp"
+
+// V3.4 Diversity — greedy MMR selection over an already-retrieved candidate pool; the Bank
+// Inspector's query pane (SSuperFAISSBankInspector::RunQuery) is its caller in this module.
+#include "../../../ThirdParty/SuperFAISS/src/diversity.cpp"

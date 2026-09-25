@@ -314,7 +314,7 @@ correspondence analysis; selected rows become named prototype assets
 ![The SuperFAISS Bank Inspector: View A's cluster tree and PCA scatter (an outlier row
 selected — one white dot, its amber near-neighbors, the rest of its cluster in the
 cluster's own color) beside View B's novelty verdict and evidence list and View C's
-per-row correspondence list against a second
+per-row correspondence list against a comparison
 bank.](docs/images/BankInspector_3_2.png)
 
 Beyond live queries and the PCA scatter, the Bank Inspector (**Tools > SuperFAISS Bank
@@ -341,9 +341,9 @@ component/match ids may differ across machines, no cross-device claim).
   rank against a calibrated k-th-neighbor baseline if the identity check doesn't
   already resolve it. The evidence list underneath shows the probe's actual nearest
   neighbors with scores and margins — the verdict's "why," not just its answer.
-- **Compute correspondence** needs a second bank (pick one from the second combo, or
+- **Compute correspondence** needs a comparison bank (pick one from the comparison combo, or
   open a scratch archive there — see below); it reports, per sampled row of the
-  primary bank, its matched partner in the second bank (or "unmatched"), with a CSLS
+  primary bank, its matched partner in the comparison bank (or "unmatched"), with a CSLS
   margin and a matched/ambiguous state. This is the disclosed HEAVY pass in the set
   — cost scales with both banks' sizes, not sub-second at scale — the panel discloses
   this before you run it.
@@ -360,7 +360,7 @@ component/match ids may differ across machines, no cross-device claim).
   calibrated against. Revisit when a correspondence population large enough to
   calibrate at `MatchK=10` exists.
 - **Open scratch archive…**, beside the normal asset picker on both the primary and
-  second-bank slots, loads a saved `USuperFAISSScratchBank` archive file directly (the
+  comparison-bank slots, loads a saved `USuperFAISSScratchBank` archive file directly (the
   same format `SaveToBytes`/`LoadFromBytes` round-trip) as a transient inspection
   source — no need to bake it to an asset first. A tombstoned (removed) row in an
   archive is honored throughout: it never leaks into a sample, a cluster, or a
@@ -396,6 +396,38 @@ not perturb results in the cases tested — the determinism suite runs trace-OFF
 trace-ON and asserts an identical result on every case in that suite, so a profiling
 session has not been observed to change an answer.
 
+## Bank Inspector — drift and diversity (v3.4)
+
+Two more questions the Inspector now answers: *how far has this bank moved from that one* (Drift),
+and *what are the best results that are not near-copies of each other* (Diversity).
+
+- **Compute drift** compares the primary bank (current) with the comparison bank (baseline). It
+  reports how far the population's centre moved, the worst-case and typical distance from a
+  current row to its nearest baseline row, and the same movement per named channel. Each number
+  is also stated relative to the current bank's own spread — "moved about 1.9× its own typical
+  row-to-row variation" — so it reads without a calibrated threshold. It is built on the core's
+  cross-device int8 analytics operators, so it runs on Int8 banks only: a Float32 bank, or a
+  `Metric::Dot` bank (a raw dot product has no bank-independent distance), is refused with the
+  reason stated. It reads the shared analysis-scope combo (a channel scope re-points the headline
+  to that channel), excludes tombstoned archive rows on both sides, says so when a bank is compared
+  with itself, and runs as a cancelable pass whose cost is disclosed before it starts. A bank
+  with no internal variation (a single live row, or all live rows identical) gets its raw numbers
+  and no ratio.
+- **The diversity slider and the result count.** The query pane has a result count (1–100,
+  default 12) and a diversity slider (λ, 0–1, default 1). Every query retrieves 4× the result
+  count, then re-ranks that pool with the core's `SelectDiverseMMR`: each next result maximizes
+  `λ · relevance − (1 − λ) · redundancy`, where redundancy is its mean similarity to the results
+  already chosen, weighted by the same channel sliders the query used. At λ = 1 the list is
+  exactly the plain ranked result; below 1, each row also shows its relevance and redundancy.
+  Moving either control re-runs the current query. On Int8 banks each redundancy score is the
+  cross-device exact pair score; relevance comes from the query itself, so the diversified list
+  is deterministic per device. Float32 banks diversify too, on rows quantized to int8 as they are
+  scored. An L2 bank with no internal variation refuses diversity below λ = 1 and shows the plain
+  ranking. Measured cost of the re-ranking step at result count 100 (pool 400, Ryzen 9 3950X):
+  6 ms on a 100-dim bank to 35 ms on a 1024-dim, 8-channel bank; at the default 12, under 0.5 ms.
+- **The queried row is not among its own results** (it used to be the first hit, at distance
+  zero), and each row's margin is the gap to the next row shown.
+
 ## Guarantees
 
 - **Exact**, not approximate: true top-k under Dot, Cosine, or L2.
@@ -426,9 +458,9 @@ The stripped plugin compiles and the non-demo test groups pass unchanged.
 
 ## Tests
 
-`SuperFAISS.*` automation tests (131 in this plugin — every registered
+`SuperFAISS.*` automation tests (182 in this plugin — every registered
 `IMPLEMENT_*_AUTOMATION_TEST`, run `Session > Automation` in the editor to see the
-current count; 135 with the MCP plugin enabled — `SuperFAISS.D.ReadmeTestCountAssertion`
+current count; 186 with the MCP plugin enabled — `SuperFAISS.D.ReadmeTestCountAssertion`
 checks both of these numbers against the registered-test count at runtime and fails the
 build if they drift)
 cover kernel correctness, SIMD/scalar mirror equality, determinism, tie-break
@@ -448,7 +480,7 @@ gate, bank lint analyses, prototype authoring, a golden semantic query on the de
 bank, the Mass swarm's stability (F2), the Bank Inspector's structure/novelty/
 correspondence panels (including the archive-source path — a tombstoned row proven
 absent from every sample, cluster, baseline, and matched pair, asset-vs-archive
-output equality, and the second-bank-slot mutual-exclusion/invalidation matrix), and
+output equality, and the comparison-bank-slot mutual-exclusion/invalidation matrix), and
 the instrumentation bar's non-perturbation guarantee (the determinism suite bit-equal
 trace-OFF vs. trace-ON) and counter fidelity. Run headless:
 

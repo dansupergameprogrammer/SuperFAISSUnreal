@@ -7,6 +7,30 @@ release vendors.
 
 The format follows [Keep a Changelog](https://keepachangelog.com).
 
+## [3.4.0] — 2026-09-24
+
+Drift and diversity in the Bank Inspector, on the vendored SuperFAISS core 3.4.0.
+
+### Added
+- **Drift.** "Compute drift" compares the primary bank with the comparison bank: centroid
+  movement, worst-case and typical nearest-row distance, and per-channel movement, each also
+  stated as a multiple of the current bank's own spread. Int8 banks; Float32 and `Metric::Dot`
+  banks are refused with the reason stated. Reads the analysis-scope combo, excludes tombstoned
+  archive rows, discloses a self-comparison, and runs as a cancelable pass with its cost disclosed
+  first.
+- **Diversity.** A diversity slider (λ, default 1) re-ranks each query's results with the core's
+  `SelectDiverseMMR` over a pool of 4× the result count, so each next result is relevant and
+  unlike those already chosen; at λ = 1 the list is exactly the plain ranking, and below 1 each
+  row shows its relevance and redundancy. Channel weights apply to both. Works on Int8 and
+  Float32 banks (Float32 per-device). Moving the slider re-runs the query.
+- **Result count.** The query pane's result count is adjustable, 1–100 (default 12, unchanged).
+
+### Changed
+- **The queried row is no longer listed among its own results** (it was always the first hit, at
+  distance zero), and each row's margin is the gap to the next row shown.
+- **Vendored core 3.4.0** (`SelectDiverseMMR`, `ScoreXdPairSegmented`); see
+  `Source/ThirdParty/SuperFAISS/VENDORED_VERSION.txt`.
+
 ## [3.3.1] — 2026-07-26
 
 Correctness release. The Bank Inspector now delivers the archive-inspection workflow the

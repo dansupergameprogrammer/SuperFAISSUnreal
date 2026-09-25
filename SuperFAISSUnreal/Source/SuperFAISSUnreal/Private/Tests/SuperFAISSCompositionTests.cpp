@@ -80,14 +80,20 @@ bool FSuperFAISSQueryCompositionTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("centroid dims"), Centroid.Num(), Dims);
 		for (int32 J = 0; J < Dims && J < Centroid.Num(); ++J)
 		{
+			// Mirrors compose.cpp's MakeCentroid bit-for-bit: double accumulation in the
+			// caller's index order, then multiply by the double reciprocal (not a direct
+			// divide -- the two round differently), cast to float last. Matching the exact
+			// operation sequence makes this comparison bit-exact rather than a tolerance
+			// band guessing at float32/double rounding.
 			double Ref = 0.0;
 			for (int32 RowIndex : Chosen)
 			{
 				Ref += Rows[RowIndex * Dims + J];
 			}
-			Ref /= Chosen.Num();
-			TestTrue(FString::Printf(TEXT("centroid dim %d: %g vs %g"), J, Centroid[J], Ref),
-				FMath::Abs(Centroid[J] - Ref) <= 1e-5 * (1.0 + FMath::Abs(Ref)));
+			const double Inv = 1.0 / static_cast<double>(Chosen.Num());
+			const float ExactRef = static_cast<float>(Ref * Inv);
+			TestTrue(FString::Printf(TEXT("centroid dim %d: %g vs %g"), J, Centroid[J], ExactRef),
+				Centroid[J] == ExactRef);
 		}
 
 		// The centroid queries its own bank successfully.
@@ -131,9 +137,16 @@ bool FSuperFAISSQueryCompositionTest::RunTest(const FString& Parameters)
 		A[2] = 2.0f;
 		TArray<float> Direction;
 		TestTrue(TEXT("direction built"), Subsystem->MakeDirectionQuery(A, B, Direction));
-		const float Inv = 1.0f / FMath::Sqrt(8.0f);
-		TestTrue(TEXT("direction dim1"), FMath::Abs(Direction[1] - 2.0f * Inv) <= 1e-6f);
-		TestTrue(TEXT("direction dim2"), FMath::Abs(Direction[2] - 2.0f * Inv) <= 1e-6f);
+		// Mirrors compose.cpp's MakeDirection bit-for-bit: norm and invLen computed in
+		// double (std::sqrt is correctly-rounded, deterministic), each component cast to
+		// float last. A float32-precision Inv (as a hand check would naturally compute)
+		// does not reproduce the same rounding, so the comparison must use the same
+		// double-precision path the core does to be bit-exact rather than a guessed band.
+		const double InvD = 1.0 / FMath::Sqrt(8.0);
+		const float ExactDim1 = static_cast<float>(2.0 * InvD);
+		const float ExactDim2 = static_cast<float>(2.0 * InvD);
+		TestTrue(TEXT("direction dim1"), Direction[1] == ExactDim1);
+		TestTrue(TEXT("direction dim2"), Direction[2] == ExactDim2);
 		TestFalse(TEXT("A==B rejected"), Subsystem->MakeDirectionQuery(A, A, Direction));
 	}
 
@@ -449,6 +462,13 @@ bool FSuperFAISSQueryProviderSeamTest::RunTest(const FString& Parameters)
 	if (TestTrue(TEXT("has hits"), Hits.Num() > 0))
 	{
 		TestEqual(TEXT("self at rank 1"), Hits[0].Index, 17);
+		// Not bit-exact by construction: MakeCentroidQuery on a single row re-normalizes an
+		// ALREADY unit-norm stored row (SuperFAISSQueryProvider.cpp's own comment: "a
+		// no-op up to rounding"). The re-normalize divides by a freshly-computed double
+		// norm, and the Cosine bank's stored value came from its own independent
+		// normalize-at-bake pass (bake.cpp NormalizeRows) -- two double round-trips
+		// through an irrational sqrt that need not cancel exactly. 1e-3f is far above the
+		// few-ULP noise either step can introduce.
 		TestTrue(TEXT("self-similarity ~1"), FMath::Abs(Hits[0].Score - 1.0f) <= 1e-3f);
 	}
 
