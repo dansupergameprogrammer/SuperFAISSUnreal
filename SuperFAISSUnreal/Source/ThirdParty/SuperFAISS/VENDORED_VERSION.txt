@@ -1,4 +1,4 @@
-SuperFAISS 3.4.0 at core tag v3.4.0 (commit 68d81aa). Every vendored file
+SuperFAISS 3.4.0 at core commit 68d81aa (tag v3.4.0). Every vendored file
 under include/, src/ and docs/, plus CHANGELOG.md and README.md, is byte-identical to that
 commit, line endings aside.
 
