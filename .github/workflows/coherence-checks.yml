@@ -1,7 +1,7 @@
 name: coherence-checks
 
 # Five of the six release-coherence checks that live in this repo (see
-# SuperFAISSUnreal/ci/) are pure file/text comparisons and need nothing but
+# Plugins/SuperFAISSUnreal/ci/) are pure file/text comparisons and need nothing but
 # Python — they run here, on a standard hosted runner, on every push and pull
 # request. The sixth (orphan-sweep) needs the private source-of-truth tree
 # this plugin is published from, which no hosted runner can see; it runs in
@@ -30,8 +30,8 @@ jobs:
           python-version: "3.x"
       - name: Vendored coherence (fetches the pinned core commit)
         run: |
-          python SuperFAISSUnreal/ci/check_vendored_coherence.py \
-            --plugin-root SuperFAISSUnreal
+          python Plugins/SuperFAISSUnreal/ci/check_vendored_coherence.py \
+            --plugin-root Plugins/SuperFAISSUnreal
 
   version-identity:
     runs-on: ubuntu-latest
@@ -47,8 +47,8 @@ jobs:
         # exists. release.yml runs this SAME check without the flag, right
         # after cutting the tag, so the tagged case is still enforced.
         run: |
-          python SuperFAISSUnreal/ci/check_version_identity.py \
-            --plugin-root SuperFAISSUnreal --allow-untagged
+          python Plugins/SuperFAISSUnreal/ci/check_version_identity.py \
+            --plugin-root Plugins/SuperFAISSUnreal --allow-untagged
 
   version-identity-tests:
     runs-on: ubuntu-latest
@@ -66,7 +66,7 @@ jobs:
         # Without this job a regression turns 14 tests red and every gate green.
         # The harness sets each throwaway repo's own user.name/user.email, so
         # it needs no global git identity on the runner.
-        working-directory: SuperFAISSUnreal/ci
+        working-directory: Plugins/SuperFAISSUnreal/ci
         run: python -m unittest test_check_version_identity -v
 
   doc-signatures:
@@ -78,8 +78,8 @@ jobs:
           python-version: "3.x"
       - name: Doc signatures
         run: |
-          python SuperFAISSUnreal/ci/check_doc_signatures.py \
-            --vendored-root SuperFAISSUnreal/Source/ThirdParty/SuperFAISS
+          python Plugins/SuperFAISSUnreal/ci/check_doc_signatures.py \
+            --vendored-root Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS
 
   asset-references:
     runs-on: ubuntu-latest
@@ -90,10 +90,10 @@ jobs:
           python-version: "3.x"
       - name: Asset references (this repo's own docs — not vendored third-party docs)
         run: |
-          python SuperFAISSUnreal/ci/check_asset_references.py --repo-root . \
+          python Plugins/SuperFAISSUnreal/ci/check_asset_references.py --repo-root . \
             README.md \
-            SuperFAISSUnreal/README.md \
-            SuperFAISSUnrealMCP/README.md
+            Plugins/SuperFAISSUnreal/README.md \
+            Plugins/SuperFAISSUnrealMCP/README.md
 
   reverse-doc-signatures:
     runs-on: ubuntu-latest
@@ -104,5 +104,5 @@ jobs:
           python-version: "3.x"
       - name: Reverse doc signatures (every declared public symbol is documented)
         run: |
-          python SuperFAISSUnreal/ci/check_reverse_doc_signatures.py \
-            --vendored-root SuperFAISSUnreal/Source/ThirdParty/SuperFAISS
+          python Plugins/SuperFAISSUnreal/ci/check_reverse_doc_signatures.py \
+            --vendored-root Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS

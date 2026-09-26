@@ -30,15 +30,15 @@ jobs:
 
       - name: Coherence gate (must agree before a tag is cut)
         run: |
-          python SuperFAISSUnreal/ci/check_vendored_coherence.py --plugin-root SuperFAISSUnreal
-          python SuperFAISSUnreal/ci/check_doc_signatures.py --vendored-root SuperFAISSUnreal/Source/ThirdParty/SuperFAISS
-          python SuperFAISSUnreal/ci/check_asset_references.py --repo-root . README.md SuperFAISSUnreal/README.md SuperFAISSUnrealMCP/README.md
-          python SuperFAISSUnreal/ci/check_version_identity.py --plugin-root SuperFAISSUnreal --allow-untagged
+          python Plugins/SuperFAISSUnreal/ci/check_vendored_coherence.py --plugin-root Plugins/SuperFAISSUnreal
+          python Plugins/SuperFAISSUnreal/ci/check_doc_signatures.py --vendored-root Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS
+          python Plugins/SuperFAISSUnreal/ci/check_asset_references.py --repo-root . README.md Plugins/SuperFAISSUnreal/README.md Plugins/SuperFAISSUnrealMCP/README.md
+          python Plugins/SuperFAISSUnreal/ci/check_version_identity.py --plugin-root Plugins/SuperFAISSUnreal --allow-untagged
 
       - name: Read release version from .uplugin
         id: version
         run: |
-          v=$(python -c "import json; print(json.load(open('SuperFAISSUnreal/SuperFAISSUnreal.uplugin'))['VersionName'])")
+          v=$(python -c "import json; print(json.load(open('Plugins/SuperFAISSUnreal/SuperFAISSUnreal.uplugin'))['VersionName'])")
           echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Refuse to re-cut an existing tag
@@ -57,11 +57,11 @@ jobs:
 
       - name: Version identity gate — the tag just cut must agree too
         run: |
-          python SuperFAISSUnreal/ci/check_version_identity.py --plugin-root SuperFAISSUnreal
+          python Plugins/SuperFAISSUnreal/ci/check_version_identity.py --plugin-root Plugins/SuperFAISSUnreal
 
       - name: Extract release notes from CHANGELOG.md
         run: |
-          python SuperFAISSUnreal/ci/changelog_notes.py SuperFAISSUnreal/CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          python Plugins/SuperFAISSUnreal/ci/changelog_notes.py Plugins/SuperFAISSUnreal/CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
 
       - name: Create GitHub Release
         env:

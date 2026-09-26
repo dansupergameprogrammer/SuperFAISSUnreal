@@ -44,7 +44,7 @@ on:
 
 env:
   UPROJECT: ExampleProject/ExampleProject.uproject
-  PLUGIN_UPLUGIN: SuperFAISSUnreal/SuperFAISSUnreal.uplugin
+  PLUGIN_UPLUGIN: Plugins/SuperFAISSUnreal/SuperFAISSUnreal.uplugin
 
 jobs:
   editor-build:
@@ -140,6 +140,6 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:SOURCE_ROOT)) {
             throw "SUPERFAISS_UNREAL_SOURCE_ROOT is not set — see the prerequisite note at the top of this file."
           }
-          python SuperFAISSUnreal/ci/check_orphan_sweep.py `
-            --source-root "$env:SOURCE_ROOT" --public-root "$PWD\SuperFAISSUnreal"
+          python Plugins/SuperFAISSUnreal/ci/check_orphan_sweep.py `
+            --source-root "$env:SOURCE_ROOT" --public-root "$PWD\Plugins\SuperFAISSUnreal"
           if ($LASTEXITCODE -ne 0) { throw "Orphan sweep failed (exit $LASTEXITCODE)" }
