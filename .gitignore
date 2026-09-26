@@ -3,6 +3,8 @@ Binaries/
 Intermediate/
 Saved/
 DerivedDataCache/
+# Written by packaging (UAT BuildCookRun), e.g. Build/Windows/FileOpenOrder
+ExampleProject/Build/
 .vs/
 .idea/
 *.sln
