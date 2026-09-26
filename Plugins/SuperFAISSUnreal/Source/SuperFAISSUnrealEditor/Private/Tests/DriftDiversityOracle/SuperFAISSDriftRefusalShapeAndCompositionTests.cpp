@@ -363,7 +363,7 @@ bool FSuperFAISSDriftSharedSlotCrossFeatureIdentityTest::RunTest(const FString& 
 //
 // Fixture B (current) against the 22-row baseline, so the three quantities differ: whole
 // row 1156.00293, chanA 578.174744, chanB 576.485168 (FixtureB::kRaw*, re-derived by the
-// T-3008b probe Part 3 with CentroidDistanceCrossDevice / ...Channel). A build that ignores
+// offline probe (part 3) with CentroidDistanceCrossDevice / ...Channel). A build that ignores
 // the combo shows the whole-row value under the chanA scope and fails; a build that scopes to
 // the wrong channel shows chanB's and fails. (Two identical banks, the fixture this cell had
 // before, make every value 0, so no build could fail it.)

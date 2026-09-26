@@ -60,7 +60,7 @@ namespace
 // as a scratch archive with row 0 (one of the four perturbed rows) tombstoned; Movement is
 // asserted exactly equal to CentroidDistanceCrossDevice over the 21 live rows
 // (FixtureA::kExpectedMovementRow0Tombstoned, derived independently of the panel by the
-// T-3008b probe). A build that ignores the tombstone displays 0.611961246 and fails.
+// offline probe). A build that ignores the tombstone displays 0.611961246 and fails.
 // ===========================================================================
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSuperFAISSDriftTombstoneThreadingTest,
