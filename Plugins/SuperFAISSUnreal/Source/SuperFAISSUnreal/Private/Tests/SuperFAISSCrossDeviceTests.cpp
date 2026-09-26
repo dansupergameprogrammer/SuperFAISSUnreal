@@ -1,4 +1,4 @@
-// Cross-device exactness tests (V2.2, plan section 19 / T-058). Two layers:
+// Cross-device exactness tests (V2.2, plan section 19). Two layers:
 //
 // 1. The GOLDEN HASH battery — a faithful port of the core suite's T25 battery
 //    over the committed fixture banks (vendored tests/xd_fixtures.h), asserting

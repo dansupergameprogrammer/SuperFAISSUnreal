@@ -1,10 +1,10 @@
-// Scratch-bank channel SURFACE completion tests (T-099 slot 5, the BP-facing surface
+// Scratch-bank channel SURFACE completion tests (V3.0 slot 5, the BP-facing surface
 // left after the engine-level channel query landed). Two surfaces:
 //   (1) USuperFAISSSubsystem::QuerySimilarChannelsScratch — the Blueprint sibling of the
 //       baked QuerySimilarChannels, asserted bit-identical to the C++ QueryScratch it
 //       wraps (a named-channel query on a scratch bank);
 //   (2) USuperFAISSScratchBank::MeasureRecallPerChannel — the scratch closure of the
-//       core v3.0 MeasureScratchRecallPerChannel (D-V3-7), one recall report per channel,
+//       core v3.0 MeasureScratchRecallPerChannel, one recall report per channel,
 //       plus its defined rejections (non-retention bank, channel-less bank).
 //
 // Mirrors SuperFAISSScratchChannelTests.cpp's fixtures (a Cosine channel scratch bank,
@@ -115,7 +115,7 @@ bool FSuperFAISSScratchChannelBPWrapperTest::RunTest(const FString& Parameters)
 // Cell 2 — MeasureRecallPerChannel returns one report per channel on a retention-enabled
 // Cosine channel bank, each report over the appended live rows; and rejects (empty
 // output) on a non-retention bank and on a channel-less bank. The per-channel closure of
-// the core v3.0 MeasureScratchRecallPerChannel (D-V3-7).
+// the core v3.0 MeasureScratchRecallPerChannel.
 // -----------------------------------------------------------------------------------
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSuperFAISSScratchPerChannelRecallTest,

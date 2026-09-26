@@ -8,7 +8,7 @@
 // MCP plugin's adapter discovers it (M-G3 — this module never depends on the MCP
 // plugin itself). Compile-out on stock engines is the plugin enable switch: this
 // plugin ships disabled-by-default with a hard ToolsetRegistry dependency (§19.3 as
-// amended, D-M4).
+// amended).
 //
 // Registration is deferred to OnPostEngineInit: the registry's backing editor
 // subsystem does not exist at module-load time (observed at the M-V1 gate —

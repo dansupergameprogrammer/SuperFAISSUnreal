@@ -1,10 +1,9 @@
 // SuperFAISS For Unreal 3.4 -- §9.5a's mid-selection refusal (the 3.4 drift-and-diversity plan
-//  §12 dims 4/5/10/11, D-INSP-60 Option A).
+//  §12 dims 4/5/10/11, Option A).
 //
 // Every test in this file drives Gate 6b's diversity seams (`RunQueryForTest`,
 // `SetDiversityLambdaForTest`, `SetQueryKForTest`, `GetLastMMRSelectionForTest`, and
-// `SetDiversitySegmentOverrideForTest`, D-SLM1837) and is guarded by `SUPERFAISS_GATE6B_BUILT`
-// (D-SLM3890).
+// `SetDiversitySegmentOverrideForTest`) and is guarded by `SUPERFAISS_GATE6B_BUILT`.
 //
 // Scope: BOTH §9.5a triggers, at both lambda = 1 and lambda < 1 (§9.5a: the redundancy
 // evaluation is unconditional on lambda, so the refusal note is the only signal that tells a
@@ -12,9 +11,9 @@
 // SetChannelWeightForTest; the segment-list InvalidArgument trigger through
 // SetDiversitySegmentOverrideForTest.
 //
-// Construction (T-3008, D-SLM7829): SelectDiverseMMR first evaluates redundancy at step 1, so
-// every cell runs K = 2 on a bank with two candidates once the queried row is excluded
-// (D-SLM7837). Each cell asserts the whole §9.5a disposition: the refusal state, the shared
+// Construction: SelectDiverseMMR first evaluates redundancy at step 1, so
+// every cell runs K = 2 on a bank with two candidates once the queried row is excluded.
+// Each cell asserts the whole §9.5a disposition: the refusal state, the shared
 // note, the fallback order (the pool's own top-K relevance order -- never the aborted call's
 // partial buffer), each entry's pool relevance score, and redundancy 0 throughout. The pool
 // scores are derived independently of the panel (probe §8/§9,
@@ -204,7 +203,7 @@ bool FSuperFAISSDiversitySegmentOverrideRefusalLambdaEquals1Test::RunTest(const 
 }
 
 // ===========================================================================
-// dim 5/dim 10: the override is CONSUMED, one-shot-per-query (D-SLM1832 item 2) -- the query
+// dim 5/dim 10: the override is CONSUMED, one-shot-per-query -- the query
 // immediately following the overridden one, with no override re-armed, runs the kernel on
 // the bank's own well-formed segment list and displays its values.
 // ===========================================================================

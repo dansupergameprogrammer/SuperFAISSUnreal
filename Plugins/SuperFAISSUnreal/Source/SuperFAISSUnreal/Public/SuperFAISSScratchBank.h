@@ -56,9 +56,9 @@ struct FSuperFAISSScratchRecallReport
 // Queries are lock-free readers and may run from any thread; they pin the bank
 // for their flight (V2-G5). Grow/Freeze/Load drain: they refuse while waiting
 // on in-flight queries, and the subsystem refuses NEW queries while they wait
-// (T-044 N4) — without that refusal a busy consumer starves the operation.
+// — without that refusal a busy consumer starves the operation.
 //
-// Index stability (T-044 W4): Grow preserves row indices — a stored index means
+// Index stability: Grow preserves row indices — a stored index means
 // the same row before and after. Freeze compacts (drops removed rows) and
 // renumbers; it returns the old->new map so stored handles can be remapped as
 // part of the freeze.
@@ -80,7 +80,7 @@ public:
 	bool Init(int32 Capacity, int32 Dims, ESuperFAISSBankMetric Metric,
 		ESuperFAISSBankQuantization Quantization, bool bRetainFloats = false);
 
-	// V3.0 slot 5 (T-099): channel-carrying init — the scratch-bank sibling of the
+	// V3.0 slot 5: channel-carrying init — the scratch-bank sibling of the
 	// baked bank's InitFromSource channel carry. Stores the host-side channel table
 	// (Names/Offsets/Lengths, dims-space ranges) and allocates through the core
 	// channel Create overload so named-channel scratch queries resolve against this
@@ -111,7 +111,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Similarity|Scratch")
 	FName GetChannelName(int32 Index) const { return ChannelNames.IsValidIndex(Index) ? ChannelNames[Index] : NAME_None; }
 
-	// Mutable channel vocabulary (V3.1 slot 4, T-099): atomically re-partition the
+	// Mutable channel vocabulary (V3.1 slot 4): atomically re-partition the
 	// channel table on a LIVE bank — add/remove channels, change count AND boundaries,
 	// or promote (channel-less -> channels) / demote (channels -> single-space, an
 	// empty table) — without a rebuild. The rows are unchanged (channels are sub-ranges
@@ -185,7 +185,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Similarity|Scratch")
 	bool MeasureRecall(FSuperFAISSScratchRecallReport& OutReport);
 
-	// Per-channel recall audit (V3.0, D-V3-7): on a retention-enabled Cosine bank
+	// Per-channel recall audit (V3.0): on a retention-enabled Cosine bank
 	// that carries a channel table, measures recall@k PER CHANNEL over each channel's
 	// sub-range, filling OutReports[c] for c in [0, GetChannelCount()). The channel-
 	// scoped self-query is scored against the double-precision reference restricted to
@@ -212,7 +212,7 @@ public:
 		return static_cast<uint64>(Report.Generation) != Bank.Generation();
 	}
 
-	// Index-preserving reallocation (T-044 W4). Drains in-flight queries first;
+	// Index-preserving reallocation. Drains in-flight queries first;
 	// new queries are refused while it waits (N4).
 	UFUNCTION(BlueprintCallable, Category = "Similarity|Scratch")
 	bool Grow(int32 NewCapacity);
@@ -290,7 +290,7 @@ private:
 		FSuperFAISSScratchRecallReport& Out);
 
 	superfaiss::ScratchBank Bank;
-	// V3.0 slot 5 (T-099): the host-side channel vocabulary, parallel arrays in
+	// V3.0 slot 5: the host-side channel vocabulary, parallel arrays in
 	// dims space — the scratch-bank mirror of USuperFAISSVectorBank's channel table.
 	// Empty on a channel-less bank. The core ScratchBank holds its own ChannelInfo
 	// table (padded space); these Names index into it by position.

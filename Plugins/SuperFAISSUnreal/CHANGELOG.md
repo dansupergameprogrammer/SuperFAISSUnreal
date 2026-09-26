@@ -7,6 +7,20 @@ release vendors.
 
 The format follows [Keep a Changelog](https://keepachangelog.com).
 
+## [3.4.2] — 2026-09-26
+
+Source comments no longer cite internal work-tracking identifiers. No code or behavior
+changes.
+
+### Changed
+- **Comments, docs and test-failure strings no longer reference internal ticket and
+  decision-log ids**, which pointed at records no reader of this repository can open.
+  Where an id stood for a concept, the concept is named instead: "the channel-weight reset
+  rule", "the -128 guard". Three comments that named an absolute path on the development
+  machine now name the repository they point into.
+- **The vendored SuperFAISS core moves to core commit `e12deeb`.** That is core v3.4.0
+  with the same comment-only change, and no code changes. `VENDORED_VERSION.txt` pins it.
+
 ## [3.4.1] — 2026-09-26
 
 The example project packages, and its demo opens in a stock UE 5.8. Plugin code and the

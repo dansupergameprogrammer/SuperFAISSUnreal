@@ -1,5 +1,5 @@
-// SuperFAISS For Unreal 3.4 -- diversity on Float32 primary banks (D-SLM7840: supported, no
-// bit-identity claim; D-SLM7841: each candidate row lifted to an int8 cross-device image with
+// SuperFAISS For Unreal 3.4 -- diversity on Float32 primary banks (supported, no
+// bit-identity claim: each candidate row lifted to an int8 cross-device image with
 // QuantizeQueryXd, a channelled bank's channels re-laid onto the int8 16-element grid, and the
 // Metric::L2 scale L the mean squared distance to the live centroid, in double). The Coverage
 // Model's diversity dimensions as they apply to the Float32 path (the 3.4 drift-and-diversity plan
@@ -17,7 +17,7 @@
 // depends on this device's rounding; the channelled Cosine leg, whose values cannot be made
 // exact, asserts the selection order only.
 //
-// Guarded by `SUPERFAISS_GATE6B_BUILT` (D-SLM3890).
+// Guarded by `SUPERFAISS_GATE6B_BUILT`.
 
 #include "Misc/AutomationTest.h"
 

@@ -827,7 +827,7 @@ bool FSuperFAISSAnalyticsSurfaceTest::RunTest(const FString& Parameters)
 		}
 	}
 
-	// --- ScoreXdPair pair primitive == core, on Dot/Cosine/L2; + the D-V2-13 guard ---
+	// --- ScoreXdPair pair primitive == core, on Dot/Cosine/L2; + the -128 guard ---
 	{
 		USuperFAISSVectorBank* Bank = NewObject<USuperFAISSVectorBank>();
 		FString Error;
@@ -877,7 +877,7 @@ bool FSuperFAISSAnalyticsSurfaceTest::RunTest(const FString& Parameters)
 			}
 		}
 
-		// D-V2-13: a hand-forged payload carrying INT8_MIN (-128) with a matching
+		// The -128 guard: a hand-forged payload carrying INT8_MIN (-128) with a matching
 		// self-dot passes IsPayloadValid, and is rejected by the public boundary's
 		// -128 guard (the +-127 premise enforced, not merely asserted).
 		FSuperFAISSCrossDeviceQuery Neg = PayloadA;
@@ -888,7 +888,7 @@ bool FSuperFAISSAnalyticsSurfaceTest::RunTest(const FString& Parameters)
 			Neg.SqSum += static_cast<int64>(-128) * -128 - static_cast<int64>(Prev) * Prev;
 			TestTrue(TEXT("forged -128 payload is self-consistent"), Neg.IsPayloadValid());
 			float Rejected = 0.0f;
-			TestFalse(TEXT("-128 payload rejected (D-V2-13)"),
+			TestFalse(TEXT("-128 payload rejected"),
 				Subsystem->ScoreCrossDeviceQueryPair(Neg, PayloadB,
 					ESuperFAISSBankMetric::Dot, Rejected));
 		}

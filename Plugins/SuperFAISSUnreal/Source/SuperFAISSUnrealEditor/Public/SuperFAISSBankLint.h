@@ -28,7 +28,7 @@ struct FSuperFAISSPrototypeOverlap
 	float CosineSimilarity = 0.0f;
 };
 
-// A channel carrying too little row energy in too many rows (T-044 W2c): its
+// A channel carrying too little row energy in too many rows: its
 // per-channel cosines are amplified quantization noise and unreliable.
 struct FSuperFAISSWeakChannel
 {
@@ -90,7 +90,7 @@ public:
 		float VarianceEpsilon,
 		FSuperFAISSLintReport& InOut);
 
-	// Sub-norm floor (T-044 W2c): on Cosine channel banks, counts rows whose channel
+	// Sub-norm floor: on Cosine channel banks, counts rows whose channel
 	// carries less than EnergyFloor of the row's energy (sub-norm squared; rows are
 	// whole-normalized so the fraction IS the squared sub-norm). Channels with such
 	// rows produce unreliable per-channel cosines and are reported per channel.

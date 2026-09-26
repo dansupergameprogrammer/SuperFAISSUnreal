@@ -12,7 +12,7 @@
 // exactly the shape `StandardsDocument.md` §5.4/red-first TDD predicts for a compiled
 // language: the missing symbol IS this cell's "red," until Gate 6a supplies it.
 //
-// Every comparison below routes through AssertExactValue (D-INSP-64) except Fixture A's
+// Every comparison below routes through AssertExactValue except Fixture A's
 // four raw-operator lines, which use AssertWithinQuantizationTolerance -- §11's one named
 // exception, Fixture A's own pre-existing, separately-governed int8-quantization bound.
 

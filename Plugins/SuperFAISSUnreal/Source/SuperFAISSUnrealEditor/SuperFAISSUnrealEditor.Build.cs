@@ -25,7 +25,7 @@ public class SuperFAISSUnrealEditor : ModuleRules
 		// SSuperFAISSBankInspector, with its RunQueryForTest/SetDiversityLambdaForTest/
 		// SetQueryKForTest/GetLastMMRSelectionForTest/SetDiversitySegmentOverrideForTest seams)
 		// is built. The diversity tests under Private/Tests/DriftDiversityOracle/ that call those
-		// seams are guarded by this define (D-SLM3890); it is 1, so every one of them compiles
+		// seams are guarded by this define; it is 1, so every one of them compiles
 		// and runs.
 		PublicDefinitions.Add("SUPERFAISS_GATE6B_BUILT=1");
 

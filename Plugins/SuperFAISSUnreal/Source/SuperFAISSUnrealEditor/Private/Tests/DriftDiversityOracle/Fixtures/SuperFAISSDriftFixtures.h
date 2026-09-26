@@ -1,7 +1,7 @@
 // SuperFAISS For Unreal 3.4 -- drift oracle Fixtures A, B, C (the 3.4 drift-and-diversity plan
 //  §11.1). Every geometry and every expected
 // numeric constant below reproduces, verbatim, the hand-derivation and executed values
-// already produced and checked at Gate 0c (MET, D-SLM1773) -- this header invents no new
+// already produced and checked at Gate 0c (MET) -- this header invents no new
 // number; it re-expresses the fixture construction and its already-executed outputs as
 // UE bank assets, so the oracle test in this directory can drive the real panel against
 // them once Gate 6a exists. Sources:
@@ -41,7 +41,7 @@ namespace SuperFAISSDriftDiversityOracle
 		// the array by kDriftDims (appending a new row), where the original
 		// `SetNumZeroed(kDriftDims)` truncated it back to exactly kDriftDims elements on
 		// every call after the first, corrupting every row from the second onward
-		// (execution-confirmed crash, Gate 6a build, D-SLM1858:
+		// (execution-confirmed crash, Gate 6a build:
 		// "Array index out of bounds: 32 into an array of size 32" in
 		// BuildBaselineRows() -- exactly the second row's write).
 		Rows.SetNumZeroed(Base + kDriftDims);
@@ -217,7 +217,7 @@ namespace SuperFAISSDriftDiversityOracle
 
 		// The composed, DISPLAYED ratio §8.3.1 specifies for Metric::L2:
 		// sqrt(Movement)/sqrt(Spread(current)) -- equivalently sqrt(Movement/Spread(current))
-		// -- denominator Spread(current) per D-INSP-41. These five values are the fixture's
+		// -- denominator Spread(current). These five values are the fixture's
 		// own hand-derived expected DISPLAY values, reproduced verbatim from the mutation-
 		// execution ledger's own `Expected` column (rows 99-103, the `sqrt-omission-l2`/
 		// `wrong-denominator` mutant rows against FixtureB -- both mutants' `Expected`

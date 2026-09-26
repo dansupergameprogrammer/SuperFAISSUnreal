@@ -2,25 +2,25 @@
 //  §9, §6.2, §11.2, §12 dims 1/2/4/5/6/7/8/10/11).
 //
 // Every expected value below is the panel's REAL query path as the plan specifies it, derived
-// independently of the panel by one standalone probe against the plugin's vendored core
-// (T-3008): a standalone derivation probe
+// independently of the panel by one standalone probe against the plugin's vendored core:
+// a standalone derivation probe
 // , output `t3008_panel_path_probe_output.txt` (cited per fixture
 // below as "probe §N"). That probe bakes each bank the way InitFromSource does, queries the
 // queried row's own centroid through the core Query (Exactness::PerDevice, the queried row
-// excluded -- D-SLM7837 -- and k = K x 4, §9.3), takes each candidate's relevance from the pool's
+// excluded -- and k = K x 4, §9.3), takes each candidate's relevance from the pool's
 // own Hit.score and its redundancy payload from its own row (§6.2; lifted with QuantizeQueryXd
-// on a Float32 bank, D-SLM7841), runs the real SelectDiverseMMR, and cross-checks every output
+// on a Float32 bank), runs the real SelectDiverseMMR, and cross-checks every output
 // bit against an independent reference MMR written from §6.2's formulas. It also runs, on the
 // same inputs, the mutants each cell exists to catch (§12 dim 7/11, the included-query-row
 // build, a stale or channel-scoped L, the missing K clamp) and confirms each changes at least
 // one asserted line.
 //
 // Every query in the governed suite uses kQueryRow0 ("#0" -- the index form; bare text is a
-// row id and these fixture banks carry no ids, D-SLM7826). Candidate counts exclude the
-// queried row (D-SLM7837). SelectedIndices are pool positions; the pool is in relevance
+// row id and these fixture banks carry no ids). Candidate counts exclude the
+// queried row. SelectedIndices are pool positions; the pool is in relevance
 // order, so the lambda = 1 identity (§9.4) is always {0, 1, ..., K-1}.
 //
-// Float32 fixtures (D-SLM7840/7841) are per-device with no bit-identity claim. Their geometry
+// Float32 fixtures are per-device with no bit-identity claim. Their geometry
 // is built so that every value asserted is exact in float/double arithmetic whatever the
 // summation order (integer coordinates; Cosine rows of four unit entries, which normalize to
 // exact 0.5s), so the asserted values do not depend on this device. Where that construction is
@@ -39,7 +39,7 @@
 
 namespace SuperFAISSDriftDiversityOracle
 {
-	// The query text every diversity cell runs: row 0 by index (D-SLM7826).
+	// The query text every diversity cell runs: row 0 by index.
 	inline const TCHAR* const kQueryRow0 = TEXT("#0");
 
 	// A bank baked through the production InitFromSource path at any metric/quantization, with
@@ -414,7 +414,7 @@ namespace SuperFAISSDriftDiversityOracle
 	// Mid-selection refusal fixtures (§9.5a, §12 dims 5/10/11). Both triggers need a
 	// redundancy evaluation, which SelectDiverseMMR first makes at step 1 -- so each bank
 	// carries two candidates once the queried row is excluded, and every cell runs K = 2
-	// (D-SLM7829: the earlier K = 1 on a 2-row bank never evaluated redundancy). Probe §8/§9.
+	// (the earlier K = 1 on a 2-row bank never evaluated redundancy). Probe §8/§9.
 	//
 	// WeightedZeroNorm (Cosine, 2 x 16 channels, weights chanA 0 / chanB 1): row 0 the query
 	// (live on both channels), row 1 live on both, row 2 live on chanA only -- its weighted
@@ -517,7 +517,7 @@ namespace SuperFAISSDriftDiversityOracle
 	// weights chanA 1 / chanB 0 (the weight-0 segment G-19 requires). Two banks differ only in
 	// the gap (all zero, or filled with 1.0 + 0.5 * ((d - 16 + 3r) mod 16) <= 8.5). Every row's
 	// max |value| is 10 and sits in a channel, so the gap fill leaves every row's int8 scale --
-	// and every channel value's quantization -- unchanged (D-SLM7831). K = 3, lambda = 0.5.
+	// and every channel value's quantization -- unchanged. K = 3, lambda = 0.5.
 	// Probe §12.
 	//   - Dot: no bank-intrinsic scale, so the two banks display identical order, relevance and
 	//     redundancy -- the gap is read by neither operand.
@@ -566,7 +566,7 @@ namespace SuperFAISSDriftDiversityOracle
 	}
 
 	// ===================================================================================
-	// Float32 diversity fixtures (D-SLM7840/7841). Each bank has 4 rows (row 0 the query) so
+	// Float32 diversity fixtures. Each bank has 4 rows (row 0 the query) so
 	// the Float32 L -- the mean squared distance to the live centroid, in double -- divides by
 	// a power of two and is exact. Probe §7 (zero scale), §8 (refusal), §13, §14.
 	// ===================================================================================
@@ -640,8 +640,8 @@ namespace SuperFAISSDriftDiversityOracle
 		}
 
 		// Channelled with offsets OFF the int8 16-element grid: 40 dims, chanA [0,20), chanB
-		// [20,40) (Float32 grid 4). The panel lifts each channel to its own 16-grid range
-		// (D-SLM7841); a build that addressed the unlifted Float32 offsets would hand
+		// [20,40) (Float32 grid 4). The panel lifts each channel to its own 16-grid range;
+		// a build that addressed the unlifted Float32 offsets would hand
 		// SelectDiverseMMR an off-grid segment list and refuse mid-selection (probe §14).
 		// Integer coordinates, tie-free at both weights: q = 4e0 + 4e20, A = 4e0 + 3e21,
 		// B = 2e0 + 3e1 + 4e20, C = 3e0 + 1e2 + 2e20 + 2e22.

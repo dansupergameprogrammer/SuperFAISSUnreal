@@ -1,10 +1,10 @@
 // SuperFAISS For Unreal 3.4 -- drift's tombstone threading and cancel/re-attribution
-// (dim 2/dim 3a), diversity's tombstone-in-overfetch (dim 2/dim 8). 2026-08-08,
-// D-SLM1830/D-SLM1832 completion passes.
+// (dim 2/dim 3a), diversity's tombstone-in-overfetch (dim 2/dim 8). 2026-08-08
+// completion passes.
 //
 // The two diversity tests below (`FSuperFAISSDiversityTombstoneExclusionTest`,
 // `FSuperFAISSDiversityTieBreakDeterminismTest`) call Gate 6b's seams and are guarded by
-// `SUPERFAISS_GATE6B_BUILT` (D-SLM3890), which this module's `.Build.cs` defines 1 now that
+// `SUPERFAISS_GATE6B_BUILT`, which this module's `.Build.cs` defines 1 now that
 // Gate 6b is built. The three drift tests use only Gate 6a's seams and are unguarded.
 
 #include "Misc/AutomationTest.h"
@@ -60,7 +60,7 @@ namespace
 // as a scratch archive with row 0 (one of the four perturbed rows) tombstoned; Movement is
 // asserted exactly equal to CentroidDistanceCrossDevice over the 21 live rows
 // (FixtureA::kExpectedMovementRow0Tombstoned, derived independently of the panel by the
-// T-3008b probe). A build that ignores the tombstone displays 0.611961246 and fails.
+// offline probe). A build that ignores the tombstone displays 0.611961246 and fails.
 // ===========================================================================
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSuperFAISSDriftTombstoneThreadingTest,
@@ -148,7 +148,7 @@ bool FSuperFAISSDriftCancelAndReattributeTest::RunTest(const FString& Parameters
 // Archive-source-only (Asset sources carry no tombstone concept, §9.3). Proven by
 // tombstoning one of L2ChannellessDiversityFixture's own candidates (bank row 3) and
 // confirming the selection holds exactly the 3 remaining live candidates (bank rows 1, 2, 4
-// -- row 0 is the queried row, excluded from its own pool, D-SLM7837), not 4: a build that
+// -- row 0 is the queried row, excluded from its own pool), not 4: a build that
 // failed to thread the tombstone into the over-fetch construction would build its pool from
 // all 4 non-query rows, and at K=5 (requesting more than either count) would return 4
 // selections rather than the tombstone-respecting 3.

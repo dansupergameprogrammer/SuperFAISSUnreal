@@ -94,7 +94,7 @@ struct FSuperFAISSMMRSelectionForTest
 	TArray<float> Redundancy;
 	bool bMidSelectionRefusal = false; // §9.5a
 	FString MidSelectionRefusalNoteText; // §9.5a's one shared note
-	// §6.2's zero-scale guard (D-SLM7830): a WHOLE-PANEL refusal, decided before any
+	// §6.2's zero-scale guard: a WHOLE-PANEL refusal, decided before any
 	// candidate pool is over-fetched -- SelectDiverseMMR is never called, the plain ranking
 	// renders (SelectedIndices the pool's own prefix, Relevance each entry's pool score,
 	// Redundancy 0), and the panel's one note slot shows the refusal line. Distinct from
@@ -121,7 +121,7 @@ struct FSuperFAISSMMRSelectionForTest
 // extend to make the commission executable is exactly the vagueness Phase 5 exists to
 // surface. See the test-design record's "Routed findings" section.
 
-// A second, precise §9.7 gap, named and specified here (D-SLM1832 item 2, 2026-08-08
+// A second, precise §9.7 gap, named and specified here (2026-08-08
 // completion pass, the same routing shape as RunQueryForTest above): §9.5a names TWO
 // mid-selection refusal triggers (the Cosine weighted-zero-norm ZeroNormQuery, and the
 // segment-list InvalidArgument) but §9.7 gives no seam reaching the second one -- "a

@@ -4,9 +4,9 @@
 //
 // Every test below drives Gate 6b's diversity seams (`RunQueryForTest`,
 // `SetDiversityLambdaForTest`, `SetQueryKForTest`, `GetLastMMRSelectionForTest`) and is
-// guarded by `SUPERFAISS_GATE6B_BUILT` (D-SLM3890, D-SLM3900). Every query excludes the queried
-// row (D-SLM7837), so candidate counts are the bank's live rows minus one. Every expected value
-// is derived independently of the panel (T-3008, probe
+// guarded by `SUPERFAISS_GATE6B_BUILT`. Every query excludes the queried
+// row, so candidate counts are the bank's live rows minus one. Every expected value
+// is derived independently of the panel (probe
 // a standalone derivation probe; fixtures and derivations in
 // `Fixtures/SuperFAISSDiversityFixtures.h`).
 
@@ -129,7 +129,7 @@ bool FSuperFAISSDiversitySmallBankSecondClampTest::RunTest(const FString& Parame
 //   - All live rows identical: Spread(current) = 0 exactly. At lambda < 1 the whole panel
 //     refuses with §6.2's own text, SelectDiverseMMR is never called, and the plain ranking
 //     renders (the pool's prefix, pool scores, redundancy 0). This is a WHOLE-PANEL refusal,
-//     not §9.5a's mid-selection one (D-SLM7830). At lambda = 1 nothing refuses (§9.1a gates
+//     not §9.5a's mid-selection one. At lambda = 1 nothing refuses (§9.1a gates
 //     the refusal on lambda < 1) and the same plain ranking renders.
 //   - A small but nonzero spread (L = 0.0787401572): no refusal of either kind, the kernel
 //     runs, and every displayed value is the finite value derived for it.
@@ -394,8 +394,8 @@ bool FSuperFAISSDiversityWithinFeatureWeightVectorPairingTest::RunTest(const FSt
 
 // ===========================================================================
 // dim 4/dim 8: a channel table with a GAP (not tiling paddedDims), re-scoped from dim 8's own
-// BuildScanRanges-agreement cell by D-SLM1831 to this outcome-level proof. Two banks differ
-// only in the gap's content, with every row's int8 scale held fixed (D-SLM7831); chanB is
+// BuildScanRanges-agreement cell to this outcome-level proof. Two banks differ
+// only in the gap's content, with every row's int8 scale held fixed; chanB is
 // weighted 0 (the weight-0 segment G-19 requires).
 //   - Dot: the two banks display identical order, relevance and redundancy, equal to the
 //     derived values -- the gap is read by neither operand.

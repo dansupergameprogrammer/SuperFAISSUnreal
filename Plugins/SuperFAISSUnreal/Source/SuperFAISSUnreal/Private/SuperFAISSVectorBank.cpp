@@ -137,8 +137,8 @@ bool USuperFAISSVectorBank::InitFromSource(
 		}
 		const int32 Grid = superfaiss::kAlignment / superfaiss::ElementSize(CoreQuant);
 		TSet<FName> UniqueNames;
-		// Bound the geometry in int64 before any arithmetic runs on it (F4,
-		// D-V32-89): Offset and Length are caller-supplied int32s, and two
+		// Bound the geometry in int64 before any arithmetic runs on it
+		// (F4): Offset and Length are caller-supplied int32s, and two
 		// large positive values can overflow int32 on addition. Widen End to
 		// int64 so the sum cannot wrap, and derive bEndsAtDims, the "within
 		// dims" guard, and PrevEnd from that one widened value.
@@ -184,8 +184,8 @@ bool USuperFAISSVectorBank::InitFromSource(
 
 	RebuildChannelTable();
 
-	// Cosine channel banks bake per-row inverse sub-norms from the QUANTIZED payload
-	// (T-044 W2a): the reported per-channel cosine is the cosine of what the kernel
+	// Cosine channel banks bake per-row inverse sub-norms from the QUANTIZED payload:
+	// the reported per-channel cosine is the cosine of what the kernel
 	// dots. A zero-norm row channel stores 0 (W3 row side).
 	if (ChannelNames.Num() > 0 && InMetric == ESuperFAISSBankMetric::Cosine && InCount > 0)
 	{
@@ -296,7 +296,7 @@ void USuperFAISSVectorBank::RebuildChannelTable()
 		Info.offset = ChannelOffsets[C];
 		// A channel declared to end at dims extends across the zero pad lanes so its
 		// stored range stays on the element grid (pads contribute nothing). Widen to
-		// int64 before comparing (F4, D-V32-89): these fields can carry whatever a
+		// int64 before comparing (F4): these fields can carry whatever a
 		// corrupted or tampered asset stored, and int32 addition of two large values
 		// can overflow.
 		Info.length = (static_cast<int64>(ChannelOffsets[C]) + ChannelLengths[C] == Dims)
@@ -422,7 +422,7 @@ void USuperFAISSVectorBank::PostLoad()
 
 	FString Error;
 	// Accept schema 1 (channel-less) and 2 (channels); reject anything newer or
-	// nonsensical - reject-over-degrade (T-044 N3).
+	// nonsensical - reject-over-degrade.
 	if (SchemaVersion < 1 || SchemaVersion > kMaxAssetSchemaVersion)
 	{
 		// Hard rejection: a version-mismatched bank never validates (plan §7).

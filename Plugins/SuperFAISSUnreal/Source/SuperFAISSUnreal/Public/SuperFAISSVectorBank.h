@@ -37,7 +37,7 @@ public:
 
 	// Highest asset schema this plugin build understands: 1 = channel-less V1,
 	// 2 = named channels (+ inverse sub-norms). Anything outside [1, Max] is
-	// hard-rejected at load - reject-over-degrade (T-044 N3).
+	// hard-rejected at load - reject-over-degrade.
 	static constexpr int32 kMaxAssetSchemaVersion = 2;
 
 	UPROPERTY(VisibleAnywhere, Category = "Bank")
@@ -81,7 +81,7 @@ public:
 	// Named channels (schemaVersion 2 banks): contiguous element ranges of the row,
 	// as declared by the sidecar (dims space). Empty = a v1 channel-less bank. On
 	// Cosine channel banks, per-row inverse sub-norms are baked from the QUANTIZED
-	// payload at import (plan D-V2-1 / T-044 W2a) and queries against named channels
+	// payload at import (the per-channel cosine rule) and queries against named channels
 	// score true per-channel cosines.
 	UPROPERTY(VisibleAnywhere, Category = "Bank")
 	TArray<FName> ChannelNames;
@@ -92,7 +92,7 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Bank")
 	TArray<int32> ChannelLengths;
 
-	// Per-channel recall@10 on int8 channel banks (T-044 W2b): the honest-budget
+	// Per-channel recall@10 on int8 channel banks: the honest-budget
 	// number per channel, seeded like RecallAt10. Empty when not applicable.
 	UPROPERTY(VisibleAnywhere, Category = "Bank")
 	TArray<float> ChannelRecallAt10;

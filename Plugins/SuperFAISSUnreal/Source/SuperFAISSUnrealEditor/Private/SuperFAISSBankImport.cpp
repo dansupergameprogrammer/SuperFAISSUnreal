@@ -31,7 +31,7 @@ namespace
 		return Path + TEXT(".bin");
 	}
 
-	// Per-channel seeded recall@10 (T-044 W2b): the same self-query sampling,
+	// Per-channel seeded recall@10: the same self-query sampling,
 	// restricted to one channel on both views. Any metric: on Cosine banks the
 	// float reference carries its own channel inverse sub-norms so both sides
 	// rank by true per-channel cosine; on L2/Dot banks the segment scores the
@@ -478,7 +478,7 @@ USuperFAISSVectorBank* FSuperFAISSBankImport::Import(
 		Bank->CrossDeviceRecallAt10 = ComputeRecallAt10(Rows, Count, Dims, Metric,
 			Bank, kRecallSeed, /*bCrossDevice=*/true);
 
-		// Per-channel recall on int8 channel banks (T-044 W2b), any metric: the
+		// Per-channel recall on int8 channel banks, any metric: the
 		// honest-budget number per channel, same seed discipline.
 		if (Bank->GetChannelCount() > 0)
 		{

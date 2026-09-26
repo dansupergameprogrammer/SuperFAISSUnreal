@@ -3,14 +3,14 @@
 //
 // Every test in this file drives the real panel through Gate 6b's seams
 // (`RunQueryForTest`/`SetDiversityLambdaForTest`/`SetQueryKForTest`/
-// `GetLastMMRSelectionForTest`) and is guarded by `SUPERFAISS_GATE6B_BUILT` (D-SLM3890).
+// `GetLastMMRSelectionForTest`) and is guarded by `SUPERFAISS_GATE6B_BUILT`.
 // Per coverage audit G-1 (§11.2's own pin): the assertion drives the ACTUAL panel query path,
 // never a hand-fed direct call to SelectDiverseMMR -- proving AC-3 (the widget's over-fetch
-// construction, channel binding, lambda threading, and the queried row's exclusion,
-// D-SLM7837), not only AC-2 (the kernel's own arithmetic, proven at the core level by Gate
+// construction, channel binding, lambda threading, and the queried row's exclusion),
+// not only AC-2 (the kernel's own arithmetic, proven at the core level by Gate
 // 0b's suite).
 //
-// Expected values (T-3008): every one is the real query path's output as the plan specifies
+// Expected values: every one is the real query path's output as the plan specifies
 // it -- relevance is the pool's own Hit.score, redundancy the kernel over each candidate's own
 // row -- derived independently of the panel by
 // a standalone derivation probe

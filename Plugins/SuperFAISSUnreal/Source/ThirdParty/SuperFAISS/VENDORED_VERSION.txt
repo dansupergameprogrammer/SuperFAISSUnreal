@@ -1,6 +1,9 @@
-SuperFAISS 3.4.0 at core commit 68d81aa (tag v3.4.0). Every vendored file
-under include/, src/ and docs/, plus CHANGELOG.md and README.md, is byte-identical to that
+SuperFAISS 3.4.0 at core commit e12deeb72ccb83d57b042f875417f2678d9d2df8. Every vendored
+file under include/, src/ and docs/, plus CHANGELOG.md and README.md, is byte-identical to that
 commit, line endings aside.
+
+That commit is tag v3.4.0 (68d81aa) plus one comment-only change: source comments, docs and
+test-failure strings no longer cite internal ticket and decision ids. No code changes.
 
 v3.4.0 delta — diversity (drift-and-diversity plan sections 6, 9):
 - `diversity.h` — `SelectDiverseMMR`, greedy Maximal Marginal Relevance selection over an
