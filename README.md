@@ -11,7 +11,7 @@ machines. This is the reference engine integration of the MIT-licensed
 [SuperFAISS](https://github.com/dansupergameprogrammer/superfaiss) core
 library (vendored — no external dependency).
 
-**Current release: [v3.3.0](https://github.com/dansupergameprogrammer/superfaiss-unreal/releases/tag/v3.3.0)**, bundling core [v3.3.0](https://github.com/dansupergameprogrammer/superfaiss/releases/tag/v3.3.0) — see [CHANGELOG.md](SuperFAISSUnreal/CHANGELOG.md), and [VENDORED_VERSION.txt](SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/VENDORED_VERSION.txt) for the exact core commit. Version markers in this file record when a capability landed, not the current version.
+**Current release: [v3.4.1](https://github.com/dansupergameprogrammer/SuperFAISSUnreal/releases/tag/v3.4.1)**, bundling core [v3.4.0](https://github.com/dansupergameprogrammer/superfaiss/releases/tag/v3.4.0) — see [CHANGELOG.md](Plugins/SuperFAISSUnreal/CHANGELOG.md), and [VENDORED_VERSION.txt](Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/VENDORED_VERSION.txt) for the exact core commit. Version markers in this file record when a capability landed, not the current version.
 
 SuperFAISS is an **independent implementation** — not a fork of, derived from, or
 affiliated with Meta's FAISS; the name is nominative homage.
@@ -27,7 +27,7 @@ for the full numbers and how to reproduce them.
 ## Try it
 
 1. Clone. Open `ExampleProject/ExampleProject.uproject` (UE 5.8+; the project finds
-   the plugin in the repo root via `AdditionalPluginDirectories`). Build when prompted.
+   the plugin in the repo's `Plugins/` folder via `AdditionalPluginDirectories`). Build when prompted.
 2. The editor opens on the demo map. Play in editor, type a word at it.
 
 Or headless, from the repo root:
@@ -36,7 +36,7 @@ Or headless, from the repo root:
 UnrealEditor-Cmd ExampleProject/ExampleProject.uproject -ExecCmds="Automation RunTests SuperFAISS; Quit" -unattended -nullrhi
 ```
 
-122 automation tests (126 with the MCP toolset plugin enabled): kernel correctness,
+182 automation tests (186 with the MCP toolset plugin enabled): kernel correctness,
 SIMD/scalar mirror equality, determinism, tie-break stability, concurrency, asset
 round-trips, import rejection, quantizer recall, performance guards, query composition
 (centroid, direction, intersection, margins), named-channel queries and decomposition,
@@ -53,7 +53,7 @@ golden semantic query on the demo bank, and the Mass swarm's stability.
 
 One bank asset, one subsystem, and a set of questions that grows over time. Version
 markers record when a capability landed, not the current version; the per-release history
-is in [CHANGELOG.md](SuperFAISSUnreal/CHANGELOG.md).
+is in [CHANGELOG.md](Plugins/SuperFAISSUnreal/CHANGELOG.md).
 
 - **Exact top-k over baked bank assets (v1.0).** Import embeddings as a
   `USuperFAISSVectorBank`, query from Blueprint or C++ on any thread. Exact search, not
@@ -124,11 +124,11 @@ scope is stated in the panel itself.
 
 ## Use it in your project
 
-Copy `SuperFAISSUnreal/` into `<YourProject>/Plugins/` and enable it. The plugin is
+Copy `Plugins/SuperFAISSUnreal/` into `<YourProject>/Plugins/` and enable it. The plugin is
 self-contained (the core library is vendored inside), has no platform allowlist, and
 depends only on stable engine modules (the demo module adds Slate/InputCore and
 Mass — UE 5.8 engine modules, no plugin references — and is strippable in three
-steps) — see the [plugin README](SuperFAISSUnreal/README.md) for
+steps) — see the [plugin README](Plugins/SuperFAISSUnreal/README.md) for
 the API quick start, bank authoring, guarantees, and demo-strip steps.
 
 **Designed for portability, verified on one target.** No platform code, no platform
@@ -158,22 +158,22 @@ so older engines are expected to be a recompile, with two version-sensitive poin
 
 | Path | What |
 |---|---|
-| `SuperFAISSUnreal/` | The plugin. Copy this folder into your project's `Plugins/`. |
-| `SuperFAISSUnrealMCP/` | Optional MCP toolset: enumerate, describe, query, import, validate, and lint tools over your banks. Requires Experimental engine plugins most distributions don't carry — see its README. Disabled by default; everything else works without it. |
+| `Plugins/SuperFAISSUnreal/` | The plugin. Copy this folder into your project's `Plugins/`. |
+| `Plugins/SuperFAISSUnrealMCP/` | Optional MCP toolset: enumerate, describe, query, import, validate, and lint tools over your banks. Requires Experimental engine plugins most distributions don't carry — see its README. Disabled by default; everything else works without it. |
 | `ExampleProject/` | Minimal host project; opens straight into the demo map. |
 
 ## Documentation
 
-- [plugin README](SuperFAISSUnreal/README.md) — API quick start, bank authoring,
+- [plugin README](Plugins/SuperFAISSUnreal/README.md) — API quick start, bank authoring,
   guarantees, and the demo-strip steps
-- [CHANGELOG.md](SuperFAISSUnreal/CHANGELOG.md) — the per-release history
-- [VENDORED_VERSION.txt](SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/VENDORED_VERSION.txt)
+- [CHANGELOG.md](Plugins/SuperFAISSUnreal/CHANGELOG.md) — the per-release history
+- [VENDORED_VERSION.txt](Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/VENDORED_VERSION.txt)
   — the exact core commit this release vendors, and what it carries
 - Core library docs, vendored alongside the source:
-  [API](SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/API.md) ·
-  [DETERMINISM](SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/DETERMINISM.md) ·
-  [FORMAT](SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/FORMAT.md) ·
-  [INTEGRATION](SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/INTEGRATION.md)
+  [API](Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/API.md) ·
+  [DETERMINISM](Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/DETERMINISM.md) ·
+  [FORMAT](Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/FORMAT.md) ·
+  [INTEGRATION](Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/docs/INTEGRATION.md)
 
 ## Measured (desktop editor, shipped demo bank: 40,000 words x 100 dims, int8, ~4 MB)
 
@@ -203,6 +203,6 @@ it started with.
 ## License
 
 - Plugin and example project: MIT (see `LICENSE`).
-- SuperFAISS core: MIT (`SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/LICENSE`).
+- SuperFAISS core: MIT (`Plugins/SuperFAISSUnreal/Source/ThirdParty/SuperFAISS/LICENSE`).
 - Demo bank vectors: GloVe (Pennington, Socher, Manning; Stanford NLP), Public Domain
   Dedication and License v1.0.

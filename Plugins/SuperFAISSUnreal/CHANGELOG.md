@@ -7,6 +7,25 @@ release vendors.
 
 The format follows [Keep a Changelog](https://keepachangelog.com).
 
+## [3.4.1] — 2026-09-26
+
+The example project packages, and its demo opens in a stock UE 5.8. Plugin code and the
+vendored SuperFAISS core (3.4.0) are unchanged.
+
+### Fixed
+- **The example project now packages.** Its `AdditionalPluginDirectories` pointed at the
+  repository root, which also holds `ExampleProject`, so a packaged build staged the game as a
+  remapped plugin and the executable failed with "Failed to open descriptor file". The plugins
+  now live under `Plugins/` (`Plugins/SuperFAISSUnreal`, `Plugins/SuperFAISSUnrealMCP`) and the
+  project reads `["../Plugins"]`. If you copy the plugin into your own project, copy
+  `Plugins/SuperFAISSUnreal/`.
+- **The demo content loads in a stock UE 5.8.** The demo map and both demo banks had been saved
+  by a newer engine build and were refused as "saved with a newer engine version". They are
+  resaved with UE 5.8; the data is unchanged.
+- **The packaged demo has its banks.** The demo finds its banks through the asset registry, so
+  nothing referenced them and the cooker left them out. The example project now always cooks
+  `/SuperFAISSUnreal/Demo`.
+
 ## [3.4.0] — 2026-09-24
 
 Drift and diversity in the Bank Inspector, on the vendored SuperFAISS core 3.4.0.
