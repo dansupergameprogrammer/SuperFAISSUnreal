@@ -10,16 +10,17 @@ applied here as documentation; a repository admin applies it under
 - **Require a pull request before merging** — enabled.
 - **Require status checks to pass before merging** — enabled, with:
   - `Require branches to be up to date before merging` — enabled.
-  - Required checks (exact job names, as they appear once each workflow has
-    run at least once on this repository):
-    - `coherence-checks / vendored-coherence`
-    - `coherence-checks / version-identity`
-    - `coherence-checks / doc-signatures`
-    - `coherence-checks / asset-references`
-    - `plugin-build / editor-build`
-    - `plugin-build / automation-tests`
-    - `plugin-build / shipping-build`
-    - `plugin-build / package-plugin`
+  - Required checks (the `coherence-checks` job names, from GitHub Actions):
+    - `vendored-coherence`
+    - `version-identity`
+    - `doc-signatures`
+    - `reverse-doc-signatures`
+    - `asset-references`
+  - GitHub counts these only from the run a pull request triggers. A pull
+    request whose head commit carries `[skip ci]` leaves them "expected" and
+    cannot merge until a head commit without it runs them.
+  - `plugin-build`'s jobs are not required: they need the self-hosted Unreal
+    runner, and that workflow is manual-only (see the note at its top).
 - **Require conversation resolution before merging** — enabled.
 - **Do not allow bypassing the above settings** — enabled (includes
   administrators).
