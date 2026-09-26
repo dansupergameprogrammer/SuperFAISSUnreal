@@ -859,7 +859,7 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 					+ SHorizontalBox::Slot().AutoWidth().Padding(6, 0, 0, 0)
 					[
 						SNew(SButton)
-						// T-06/T-815: the HEAVY-pass cost disclosure, shown BEFORE the pass
+						// The HEAVY-pass cost disclosure, shown BEFORE the pass
 						// runs -- the changelog's own claim. Empty (no tooltip) until both
 						// slots resolve a source, matching GetPendingCorrespondenceDisclosure()'s
 						// own empty-when-not-ready contract.
@@ -882,7 +882,7 @@ void SSuperFAISSBankInspector::Construct(const FArguments& InArgs)
 						]
 					]
 				]
-				// D-INSP-36 / plan §7.2: the shared identity block -- which two banks a
+				// Plan §7.2: the shared identity block -- which two banks a
 				// displayed number actually came from. Correspondence's picker area gains
 				// this where today it shows only the comparison bank's name; Drift's panel
 				// will use the same BuildComparisonIdentityBlock once it is built.
@@ -1330,7 +1330,7 @@ namespace
 
 bool SSuperFAISSBankInspector::OpenScratchArchiveFromBytes(const TArray<uint8>& Bytes, const FString& DisplayName)
 {
-	// T-1100 (an outside code review's finding 1): captured BEFORE this call's own commit
+	// An outside code review's finding 1: captured BEFORE this call's own commit
 	// below overwrites PrimaryArchive.Bank, so it answers "was the source that populated the
 	// CURRENT channel combo itself a primary archive?" -- the one case section 25.3's
 	// asset-driven design does not cover (see the guard below).
@@ -1370,14 +1370,14 @@ bool SSuperFAISSBankInspector::OpenScratchArchiveFromBytes(const TArray<uint8>& 
 	ProjectedPoints.Reset();
 	ProjectionStatus.Reset();
 	// The channel-WEIGHT sliders resync to the primary source unconditionally, on every
-	// primary-source change (D-INSP-27; a confirmation review's finding 2, T-1121):
+	// primary-source change (a confirmation review's finding 2):
 	// ChannelSliderNames[C] == GetPrimarySource().GetChannelName(C) must hold at query time
 	// for every sequence of source changes, because RunQuery's Args.Channels.Add binds each
 	// slider's weight to Source.GetChannelName(C) purely by array position C -- it never resolves a
 	// channel weight by name. A guarded resync here (skipping when an asset populated the
 	// combo) left the asset's stale channel names on screen while RunQuery weighted the
 	// archive's own, different channels by position: a well-formed query under a false label.
-	// D-INSP-27 additionally rules that no weight survives a source change by name either --
+	// The channel-weight reset rule additionally says no weight survives a source change by name either --
 	// every slider resets to its 1.0 default, asset or archive, every time.
 	ResyncChannelSlidersToPrimarySource();
 
@@ -1552,9 +1552,9 @@ void SSuperFAISSBankInspector::ResetProjectionScope()
 
 void SSuperFAISSBankInspector::ResyncChannelSlidersToPrimarySource()
 {
-	// D-INSP-27: every channel-weight slider resets to its 1.0 default on every
+	// Every channel-weight slider resets to its 1.0 default on every
 	// primary-source change, asset or archive alike -- no by-name carryover. A prior
-	// carryover here (T-1100) silently persisted a user's slider position across an
+	// carryover here silently persisted a user's slider position across an
 	// asset/archive swap that shares a channel name, contradicting V32-G2
 	// (`SuperFAISS_V2_Plan.md:2163`) and the shipped `SuperFAISSInspectorSettings.h`
 	// Project Settings tooltip, both of which already stated reset-on-select.
@@ -1690,7 +1690,7 @@ FString SSuperFAISSBankInspector::SourceHeaderLine() const
 		Source.GetChannelCount());
 }
 
-// D-INSP-36 / plan §7.2: the shared identity block. Static and side-effect-free -- a pure
+// Plan §7.2: the shared identity block. Static and side-effect-free -- a pure
 // function of the two sources handed to it, not of which feature (Correspondence today,
 // Drift once built) is asking. Renders both banks' display name, live row count, dims,
 // metric, and quantization side by side, so a reader can always tell which two banks a
@@ -1921,7 +1921,7 @@ float SSuperFAISSBankInspector::GetL2ScaleForPrimary(const FSuperFAISSInspection
 	const TArray<uint32> Tombstones = Source.GetTombstoneWords();
 	if (View.quant != Quantization::Int8)
 	{
-		// Float32 (D-SLM7840): SpreadCrossDevice is int8-only, so the same quantity -- the
+		// Float32: SpreadCrossDevice is int8-only, so the same quantity -- the
 		// mean squared L2 distance from each live row to the live rows' centroid -- is
 		// computed directly over the float rows, in double. Per-device; no bit-identity claim.
 		const float* Rows = static_cast<const float*>(View.rows);
@@ -2085,7 +2085,7 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 					Args.Channels.Add({Source.GetChannelName(C), ChannelWeights[C]});
 				}
 			}
-			// The queried row is never its own result (D-SLM7837): excluded from the plain
+			// The queried row is never its own result: excluded from the plain
 			// list and the diversity pool alike, so the λ = 1 identity still holds, and the
 			// first diversified pick is never the query itself -- whose redundancy against
 			// every later candidate would equal that candidate's relevance. The same
@@ -2117,7 +2117,7 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 				//    is cross-device exact. The selection is still per-device: relevance is
 				//    the per-device pool query's Hit.Score (plan §12 dim 6: deterministic
 				//    within the tier its inputs carry).
-				//  - Float32 bank (D-SLM7840): the row is lifted to an int8 image with the
+				//  - Float32 bank: the row is lifted to an int8 image with the
 				//    query-side quantizer (QuantizeQueryXd). Redundancy is then an int8
 				//    approximation, per-device, with no bit-identity claim. On a channelled
 				//    bank each channel is copied to its own range on the int8 16-element grid
@@ -2251,7 +2251,7 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 				}
 				else
 				{
-					// §9.5a (D-INSP-60, Option A): a mid-selection refusal. The partially
+					// §9.5a (Option A): a mid-selection refusal. The partially
 					// written buffers are discarded, never read; the rendered ranking is the
 					// pool's own relevance order, filled below.
 					DiversityResult.bMidSelectionRefusal = true;
@@ -2317,7 +2317,7 @@ void SSuperFAISSBankInspector::RunQuery(const FString& Text)
 					for (int32 C = 0; C < Contributions.Num(); ++C)
 					{
 						// The per-channel cosine is contribution/weight; displayed
-						// values clamp to [-1, 1] (T-044 W2d — int8 noise can push a
+						// values clamp to [-1, 1] (int8 noise can push a
 						// shade past unit; display-only, '*' marks a clamp).
 						const float Weight = Args.Channels[C].Weight;
 						FString Cosine;
@@ -3583,7 +3583,7 @@ void SSuperFAISSBankInspector::ProbeNovelty(const FString& Text)
 // itself define the B-side term).
 // ---------------------------------------------------------------------------
 
-// T-06/T-815: the pre-run cost disclosure. Read-only -- calls neither mutates state nor
+// The pre-run cost disclosure. Read-only -- calls neither mutates state nor
 // triggers a compute, and it is meaningful to call before ComputeCorrespondence() has ever
 // run (that is the entire point: the changelog's claim is a BEFORE-it-runs disclosure, not
 // a post-run status suffix). Empty when either slot has no resolved source; otherwise names
@@ -3826,7 +3826,7 @@ void SSuperFAISSBankInspector::ComputeCorrespondence()
 	// InspectorCorrespondenceLiveCountDenominators and
 	// InspectorCorrespondenceZeroEnergyDenominators. T-06's HEAVY-pass disclosure does not
 	// belong here: the [3.2.0] claim is "disclosed... before it runs", so it lands on the
-	// pre-run cost surface. See T-815.
+	// pre-run cost surface.
 	CorrespondenceStatus = FString::Printf(
 		TEXT("%d of %d A-rows checked, %d unmatched (A), %d unmatched (B)%s"),
 		RawPairCount, MatchableA, UnmatchedA, UnmatchedB,
@@ -3954,7 +3954,7 @@ void SSuperFAISSBankInspector::ComputeDrift()
 		return;
 	}
 
-	// §8.4 / D-INSP-42, corrected D-INSP-52: Metric::Dot whole-panel refusal, before any
+	// §8.4, as corrected: Metric::Dot whole-panel refusal, before any
 	// operator runs.
 	if (PrimarySource.GetMetric() == ESuperFAISSBankMetric::Dot
 		|| ComparisonSource.GetMetric() == ESuperFAISSBankMetric::Dot)
@@ -3967,7 +3967,7 @@ void SSuperFAISSBankInspector::ComputeDrift()
 
 	const ESuperFAISSBankMetric DriftMetric = PrimarySource.GetMetric(); // L2 or Cosine, Dot refused above
 
-	// §8.2 / D-INSP-37: Drift reads the shared analysis-scope combo exactly as
+	// §8.2: Drift reads the shared analysis-scope combo exactly as
 	// Structure/Novelty already do -- when scoped to one channel, the DISPLAYED headline
 	// re-points to that channel's own already-computed per-channel row, below.
 	const FString ScopeName = SelectedProjectionScope.IsValid() ? *SelectedProjectionScope : TEXT("(whole row)");
@@ -4061,7 +4061,7 @@ void SSuperFAISSBankInspector::ComputeDrift()
 			}
 
 			// §8.1/P-2a: the per-channel table -- every named channel, always, independent
-			// of the analysis-scope combo (only the headline re-points, §8.2/D-INSP-37).
+			// of the analysis-scope combo (only the headline re-points, §8.2).
 			const int32 ChannelCount = PrimarySource.GetChannelCount();
 			for (int32 C = 0; C < ChannelCount; ++C)
 			{
@@ -4167,7 +4167,7 @@ void SSuperFAISSBankInspector::ComputeDrift()
 		DriftResult.TypicalRatio = ComposeDriftRatio(DriftMetric, WholeMeanNN, WholeSpreadCurrent);
 	}
 
-	// §8.2/D-INSP-37: when the shared analysis-scope combo is scoped to one channel, the
+	// §8.2: when the shared analysis-scope combo is scoped to one channel, the
 	// headline movement/spread/ratio re-point to that channel's own already-computed
 	// per-channel row -- worst-case/typical have no channel-scoped equivalent in this
 	// release's own operator list (§8.1) and stay whole-row regardless of scope.
@@ -4205,7 +4205,7 @@ const TCHAR* SSuperFAISSBankInspector::DiversityIdentityNote()
 
 const TCHAR* SSuperFAISSBankInspector::DiversityMidSelectionRefusalNote()
 {
-	// V3.4 plan §9.5a (D-INSP-60), verbatim -- one shared note for both refusal triggers.
+	// V3.4 plan §9.5a, verbatim -- one shared note for both refusal triggers.
 	return TEXT("Diversity unavailable for this query: could not evaluate how similar the results are to each "
 		"other. Showing the plain relevance-ranked results instead.");
 }
@@ -4424,7 +4424,7 @@ FSuperFAISSMMRSelectionForTest SSuperFAISSBankInspector::GetLastMMRSelectionForT
 	{
 		Out.MidSelectionRefusalNoteText = GetDiversityNoteText();
 	}
-	// §6.2's whole-panel refusal (D-SLM7850): the panel's own flag, and the note slot's text
+	// §6.2's whole-panel refusal: the panel's own flag, and the note slot's text
 	// only while it is set.
 	Out.bWholePanelRefusal = DiversityResult.bWholePanelRefusal;
 	if (DiversityResult.bWholePanelRefusal)

@@ -87,7 +87,7 @@ struct USuperFAISSSubsystem::FPooledWorkspace
 	// buffers above; the tombstone words reuse TombstoneStaging (as QueryScratch does).
 
 	// Parallel-scan scratch, all from this one pooled workspace so the parallel path
-	// stays allocation-free once warm (T-033 constraint): per-chunk heap and
+	// stays allocation-free once warm (a standing constraint): per-chunk heap and
 	// finalized-list storage, list pointers/counts for the merge, and the merge heap.
 	TArray<superfaiss::Hit> ChunkHeapStorage;
 	TArray<superfaiss::Hit> ChunkSorted;
@@ -192,7 +192,7 @@ namespace
 		return true;
 	}
 
-	// D-V2-1 query-side rule: on Cosine channel banks, the query's channel
+	// Per-channel cosine query-side rule: on Cosine channel banks, the query's channel
 	// sub-vectors renormalize once at build so segment scores are true cosines.
 	void RenormalizeQueryChannels(
 		const USuperFAISSVectorBank* Bank,
@@ -677,7 +677,7 @@ bool USuperFAISSSubsystem::QueryScratch(
 	const double StartSeconds = FPlatformTime::Seconds();
 
 	OutHits.Reset();
-	// V3.0 slot 5 (T-099): scratch banks now carry a channel table (InitWithChannels),
+	// V3.0 slot 5: scratch banks now carry a channel table (InitWithChannels),
 	// so named-channel queries resolve against this bank's own vocabulary below — the
 	// former blanket channel rejection is gone.
 	if (Bank == nullptr || !Bank->IsInitialized() || Args.K <= 0 ||
@@ -739,10 +739,10 @@ bool USuperFAISSSubsystem::QueryScratch(
 			Scratch->HitStaging.SetNumUninitialized(Args.K);
 		}
 
-		// V3.0 slot 5 (T-099): resolve named channels against THIS scratch bank's own
+		// V3.0 slot 5: resolve named channels against THIS scratch bank's own
 		// vocabulary — the scratch sibling of the baked ResolveSegments. Named channels
 		// and raw segments are mutually exclusive (the baked path's rule); an unknown
-		// channel name is a defined rejection. V3.1 Relabel relaxes D-V3-2 (the table is
+		// channel name is a defined rejection. V3.1 Relabel relaxes the fixed-table rule (the table is
 		// mutable), but Relabel swaps the host name list and the core channel table
 		// together inside its exclusive drain (SuperFAISSScratchBank::Relabel, C1),
 		// so under this reader pin GetChannelIndex's position still indexes View.channels
@@ -783,7 +783,7 @@ bool USuperFAISSSubsystem::QueryScratch(
 			return A.offset < B.offset;
 		});
 
-		// D-V2-1 query-side rule on Cosine channel banks: renormalize each queried
+		// Per-channel cosine query-side rule on Cosine channel banks: renormalize each queried
 		// sub-vector to unit norm so segment scores are true per-channel cosines — the
 		// scratch mirror of RenormalizeQueryChannels on the baked path. It is what
 		// makes a named-channel query and the equivalent raw-range query score
@@ -828,7 +828,7 @@ bool USuperFAISSSubsystem::QueryScratch(
 			}
 		}
 
-		// v2.1 bias on scratch: index-aligned to THIS snapshot (T-055 N2) - a dense
+		// v2.1 bias on scratch: index-aligned to THIS snapshot - a dense
 		// view sized for any other count is rejection, never silent misalignment;
 		// the equal-count remove-then-append hazard is forbidden by the pin/drain
 		// machinery this query already runs under.
@@ -1798,7 +1798,7 @@ bool USuperFAISSSubsystem::ScoreCrossDeviceQueryPair(const FSuperFAISSCrossDevic
 	using namespace superfaiss;
 	OutScore = 0.0f;
 	// The plugin trust-boundary mirror of the core payload law (both payloads
-	// self-consistent). The D-V2-13 -128 guard lives in the core ScoreXdPair below —
+	// self-consistent). The -128 guard lives in the core ScoreXdPair below —
 	// a -128 image with a correct self-dot passes IsPayloadValid and is rejected there,
 	// which is the behaviour U1 asserts.
 	if (!A.IsPayloadValid() || !B.IsPayloadValid() || A.PaddedDims != B.PaddedDims)

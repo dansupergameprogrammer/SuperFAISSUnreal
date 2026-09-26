@@ -1,6 +1,6 @@
 // SuperFAISS For Unreal 3.4 -- dim 3b, diversity's concurrency absence claim
 // (the 3.4 drift-and-diversity plan §12 dim 3, coverage-model
-// audit G-29; re-scoped by D-SLM1871). `SelectDiverseMMR`/`ScoreXdPairSegmented` are
+// audit G-29, since re-scoped). `SelectDiverseMMR`/`ScoreXdPairSegmented` are
 // synchronous, single-threaded, allocation-free-on-the-caller's-buffers functions with no
 // thread/task/async handle in their specification (§6.2) -- proven here by scanning the two
 // kernels' own translation units and complete call graph for the banned-symbol set the
@@ -11,7 +11,7 @@
 //   Source/ThirdParty/SuperFAISS/include/superfaiss/analytics.h
 //   Source/ThirdParty/SuperFAISS/src/analytics.cpp
 // Both kernels call nothing outside these four files, and neither has any call-graph
-// presence under `Source/SuperFAISSUnreal` (D-SLM1871), so the runtime-module scan root the
+// presence under `Source/SuperFAISSUnreal`, so the runtime-module scan root the
 // earlier construction carried was never load-bearing for this claim and is removed.
 //
 // COMPILE STATUS: compiles and runs TODAY -- a pure file read, no panel or core symbol
@@ -38,7 +38,7 @@ namespace
 {
 	const TCHAR* kBannedSymbols[] = {TEXT("QueryAsync"), TEXT("FSuperFAISSTicket"), TEXT("AsyncTask(")};
 
-	// The four files D-SLM1871 names, relative to Source/ThirdParty/SuperFAISS.
+	// The four files the re-scoped claim names, relative to Source/ThirdParty/SuperFAISS.
 	const TCHAR* kKernelFiles[] = {
 		TEXT("include/superfaiss/diversity.h"),
 		TEXT("src/diversity.cpp"),

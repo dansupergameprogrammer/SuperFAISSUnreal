@@ -477,7 +477,7 @@ bool FSuperFAISSTutorialArchiveNoveltyParityTest::RunTest(const FString& Paramet
 //     channel direction), but Sec5's OWN top-1 in full Primary is uniquely row 17 (tag (2,3),
 //     similarity 1.0) -- not row 7 -- so back-verification fails.
 //
-// THE CALIBRATION CLAIM (SF34-006's written basis, D-INSP-20): any threshold strictly inside
+// THE CALIBRATION CLAIM (SF34-006's written basis): any threshold strictly inside
 // (0.25, 0.5] separates the two clusters this population produces -- Matched for the five
 // clean pairs, Ambiguous for the near-duplicate pair -- whereas a 0.0f threshold would put
 // BOTH clusters above it (0.25 >= 0.0), erasing the exact distinction the margin exists to

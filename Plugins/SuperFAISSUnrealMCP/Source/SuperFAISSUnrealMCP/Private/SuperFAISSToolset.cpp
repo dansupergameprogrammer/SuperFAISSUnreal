@@ -685,7 +685,7 @@ FString USuperFAISSToolset::LintBank(const FString& BankPath, float DuplicateThr
 		return JsonError(TEXT("lint failed"));
 	}
 	// Channel banks: per-channel near-duplicates, degenerate channels, weak
-	// channels (plan section 11 / T-044 W2c) - same on-demand posture.
+	// channels (plan section 11) - same on-demand posture.
 	if (Bank->GetChannelCount() > 0)
 	{
 		for (const FName& Channel : Bank->ChannelNames)

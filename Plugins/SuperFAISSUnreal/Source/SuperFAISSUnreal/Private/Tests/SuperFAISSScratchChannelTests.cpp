@@ -1,4 +1,4 @@
-// Scratch-bank channel tests (T-099 slot 5, red suite authored against the
+// Scratch-bank channel tests (V3.0 slot 5, red suite authored against the
 // red-scaffold stub): the scratch wrapper gets a named-channel query surface it has
 // none of today. Mirrors SuperFAISSChannelTests.cpp's baked-path idiom (InitFromSource
 // with a channel table, named-channel query, named==raw-range equivalence, malformed-
@@ -9,7 +9,7 @@
 // the definition of cosine similarity — not a recode of the scratch/core scoring path.
 //
 // Was red at authoring time, for two independent reasons the kickoff named, both now
-// closed by T-099 slot 5's build:
+// closed by V3.0 slot 5's build:
 //   (1) USuperFAISSScratchBank::InitWithChannels is a real implementation (validates the
 //       Names/Offsets/Lengths tables, rejects a length mismatch or a duplicate name
 //       before allocating, then builds the core-facing channel table) — every test below

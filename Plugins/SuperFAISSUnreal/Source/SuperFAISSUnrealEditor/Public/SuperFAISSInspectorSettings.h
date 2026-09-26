@@ -96,7 +96,7 @@ public:
 
 	// View C (Correspondence): the CSLS-margin classification threshold (matched vs.
 	// ambiguous, section 25.4). SF34-006 pin, 2026-07-22: 0.375, calibrated against the
-	// tutorial-bank correspondence population (D-INSP-20) — see the class comment above for
+	// tutorial-bank correspondence population — see the class comment above for
 	// the full basis. Valid anywhere in (0.25, 0.5] for that population; 0.375 is the
 	// cluster midpoint. This calibration ran at MatchK=2 (the tutorial Secondary bank has
 	// only 6 rows), not the shipped default MatchK=10 above — the margin distribution is a

@@ -1,12 +1,12 @@
 // S-INSP-3.3.1 Gate-2 gap closure: the red suite for the cells named by a coverage audit and by
 // finding 4 of a code review of the 3.3.1 release, realizing the six cells this round's brief
 // assigns for direct authoring:
-//   - T-06 (the HEAVY-pass disclosure), RETARGETED under T-815 -- see the header comment on
+//   - T-06 (the HEAVY-pass disclosure), RETARGETED -- see the header comment on
 //     CorrespondenceHeavyPassDisclosure below -- the cell as first authored asserted a post-run
 //     status suffix that two pinned pre-existing cells
 //     (SuperFAISSInspectorPanelTests.cpp:2761, :2850) already assert does NOT carry it; the
 //     CHANGELOG's own claim names a pre-run disclosure. The seam it needed,
-//     GetPendingCorrespondenceDisclosure(), now exists in the shipped tree (built under T-815)
+//     GetPendingCorrespondenceDisclosure(), now exists in the shipped tree
 //     and the cell below asserts against it directly -- CorrespondenceHeavyPassDisclosure
 //   - T-11's uncalled public accessor (GetArchivePeekGeometry/GetComparisonArchivePeekGeometry) --
 //     ArchivePeekGeometryDisclosure
@@ -35,30 +35,29 @@
 //   - M-2 -- plan sec10.2's hyperlink-reachability assertion, never authored -- added as
 //     assertion (d) in CorrespondenceDocumentationUrl's own RunTest
 //
-// Board T-1100 (2026-07-26, an outside code review's finding 1; re-filed from a colliding
-// T-1002 -- see board row T-1101): opening a SECOND channel-carrying primary archive leaves the
+// An outside code review's finding 1 (2026-07-26): opening a SECOND channel-carrying primary archive leaves the
 // FIRST archive's channel slider labels on screen while RunQuery binds those sliders' weights
 // positionally to the NEW archive's channel names -- ArchiveOpenChannelSliderLabelIdentity,
 // added below, closed by the primary-archive-resync fix in SSuperFAISSBankInspector.cpp's
 // OpenScratchArchiveFromBytes(), via its unconditional call to ResyncChannelSlidersToPrimarySource().
 //
-// Board T-1121 (2026-07-26, a confirmation review of the T-1100 remedy, finding 2): the same
+// A confirmation review of that remedy (2026-07-26), finding 2: the same
 // mislabelled-weight failure was found in the ASSET-to-archive form -- the guard's
 // asset-driven-by-design exclusion meant the FIRST primary-archive open after an asset selection
 // was never resynced, so the asset's stale channel labels stayed on screen while RunQuery bound
 // their weights to the archive's channels by position -- AssetThenArchiveChannelSliderLabel
 // Identity, added below, pins the SAME invariant ArchiveOpenChannelSliderLabelIdentity pins, for
-// the sequence that cell cannot see. CLOSED by D-INSP-27 below: ResyncChannelSlidersToPrimarySource()
+// the sequence that cell cannot see. CLOSED by the channel-weight reset rule below: ResyncChannelSlidersToPrimarySource()
 // now runs unconditionally on every primary-source change, independent of the projection-scope
-// guard (T-1123's seam unblocked the fixture, not the fix), so the label/weight binding this
+// guard (the weight seam unblocked the fixture, not the fix), so the label/weight binding this
 // cell pins is correct on the asset-to-archive sequence too -- AssetThenArchiveChannelSliderLabel
 // Identity is green.
 //
-// D-INSP-27 (2026-07-26): channel weights reset to their default on EVERY primary-source
-// change, asset or archive; the by-name carryover is removed. The seam named above (T-1123) is
+// The channel-weight reset rule (2026-07-26): channel weights reset to their default on EVERY primary-source
+// change, asset or archive; the by-name carryover is removed. The seam named above is
 // built, and it unblocked the two cells below: PrimaryBankChangeResetsChannelWeights (V32-G2's
 // reset claim on the asset->asset path) and ArchiveResyncResetsChannelWeights (the same claim on
-// the exact archive-resync path T-1100's carryover was written for). Both were authored red
+// the exact archive-resync path the carryover was written for). Both were authored red
 // against the carryover, then went green when ResyncChannelSlidersToPrimarySource() started
 // writing 1.0f unconditionally.
 
@@ -190,7 +189,7 @@ namespace
 }
 
 // ===========================================================================
-// T-06 -- the HEAVY-pass disclosure, RETARGETED (T-815, 2026-07-25). The cell as originally
+// T-06 -- the HEAVY-pass disclosure, RETARGETED (2026-07-25). The cell as originally
 // authored asserted GetCorrespondenceStatus().Contains("HEAVY") on a COMPLETED run's status.
 // That can never pass: two pre-existing, PINNED cells --
 // SuperFAISSInspectorPanelTests.cpp:2761 (InspectorCorrespondenceLiveCountDenominators) and
@@ -206,7 +205,7 @@ namespace
 // a PRE-RUN cost disclosure, not a post-run status suffix -- the post-run CorrespondenceStatus
 // was never the surface the claim describes, and the two pinned cells are correct as they stand.
 //
-// The seam this claim needed, GetPendingCorrespondenceDisclosure(), is now built (T-815,
+// The seam this claim needed, GetPendingCorrespondenceDisclosure(), is now built (
 // 2026-07-25) -- declared in SSuperFAISSBankInspector.h, implemented in
 // SSuperFAISSBankInspector.cpp: read-only, callable before ComputeCorrespondence() runs,
 // empty when either slot resolves to EKind::None, otherwise names the HEAVY pass and carries
@@ -251,7 +250,7 @@ bool FSuperFAISSCorrespondenceHeavyPassDisclosureTest::RunTest(const FString& Pa
 	// count drifts, not merely if the HEAVY token disappears.
 	Inspector->SetComparisonBankForTest(Secondary);
 	const FString Disclosure = Inspector->GetPendingCorrespondenceDisclosure();
-	TestEqual(TEXT("T-06/T-815: pre-run disclosure names the HEAVY pass and both banks' live "
+	TestEqual(TEXT("T-06: pre-run disclosure names the HEAVY pass and both banks' live "
 		"counts, read strictly before any ComputeCorrespondence() call"),
 		Disclosure,
 		FString(TEXT("HEAVY pass -- cost scales with both banks' sizes (22 live x 6 live)")));
@@ -830,7 +829,7 @@ bool FSuperFAISSCslsMarginThresholdLiteralPinTest::RunTest(const FString& Parame
 // depending on the MCP module -- the build-verification record for this closeout observed
 // exactly that composition (122 plugin + 4 MCP = 126). A cell that asserted only the
 // plugin-only count would be the exact half-claim failure mode named for this item: it does
-// not reach D:\SuperFAISSUnreal\README.md (final review S-2's file, a different repository
+// not reach the standalone repository's README.md (final review S-2's file, a different repository
 // this in-tree automation run cannot see) -- that number stays a hand-maintained fact
 // re-derived at the point the release process already runs this suite against the synced
 // tree, the same execution C-1's remedy performs.
@@ -1045,7 +1044,7 @@ bool FSuperFAISSMeasureChannelFrameBytesInvalidSpanTest::RunTest(const FString& 
 // conditional projection-scope resync guard (SSuperFAISSBankInspector.cpp, the
 // bComboWasEmptyBeforeOpen || bPreviousPrimaryWasArchive condition -- runs when
 // ChannelSliderNames.Num() == 0, or when the source that populated it was itself a primary
-// archive, T-1100). Case 1: a fresh widget
+// archive). Case 1: a fresh widget
 // where NO source -- asset or archive -- has ever populated the combo. The guard's own
 // condition is exactly this state, so the archive's own channels must populate the combo the
 // same way OnBankSelected() would for an asset.
@@ -1322,8 +1321,7 @@ bool FSuperFAISSComparisonSlotArchiveOpenChannelStateUnchangedTest::RunTest(cons
 }
 
 // ===========================================================================
-// T-1100 (2026-07-26) -- outside-review round-2 finding 1 (re-filed from a colliding T-1002
-// -- see board row T-1101): before this fix,
+// Outside-review round-2 finding 1 (2026-07-26): before this fix,
 // OpenScratchArchiveFromBytes()'s conditional RepopulateChannelState() rebuild skipped
 // whenever ChannelSliderNames was already non-empty -- P1's own fix, proven correct for the
 // fresh/asset preconditions by ArchiveOpenChannelStateFresh and
@@ -1462,10 +1460,10 @@ bool FSuperFAISSArchiveOpenChannelSliderLabelIdentityTest::RunTest(const FString
 	}
 
 	// The reachable sequence: open archive B on the SAME (primary) slot, superseding archive A.
-	// Before T-1100's fix, OpenScratchArchiveFromBytes() left ChannelSliderNames untouched
+	// Before that fix, OpenScratchArchiveFromBytes() left ChannelSliderNames untouched
 	// whenever it was already non-empty, so archive B's own channel names never entered the
 	// combo. At HEAD, ResyncChannelSlidersToPrimarySource() runs unconditionally on every
-	// primary-source change (D-INSP-27), so this open always resyncs the sliders to archive B's
+	// primary-source change, so this open always resyncs the sliders to archive B's
 	// own channels regardless of what populated the combo before it.
 	TestTrue(TEXT("archive B opens on the primary slot, superseding archive A"),
 		Inspector->OpenScratchArchiveFromBytes(BytesB, TEXT("label-identity-archive-b.bin")));
@@ -1480,7 +1478,7 @@ bool FSuperFAISSArchiveOpenChannelSliderLabelIdentityTest::RunTest(const FString
 	{
 		for (int32 C = 0; C < 2; ++C)
 		{
-			// THE INVARIANT (D-INSP-27 / T-1100, an outside code review's round-2 finding 1):
+			// THE INVARIANT (an outside code review's round-2 finding 1):
 			// RunQuery's Args.Channels.Add({Source.GetChannelName(C), ChannelWeights[C]}) --
 			// the weight this slider's label displays is bound to Source.GetChannelName(C) (the
 			// CURRENT primary source, archive B) purely by position. The invariant that must
@@ -1489,7 +1487,7 @@ bool FSuperFAISSArchiveOpenChannelSliderLabelIdentityTest::RunTest(const FString
 			// ResyncChannelSlidersToPrimarySource()'s unconditional resync on every
 			// primary-source change keeps it true, so the label reads archive B's own channel
 			// name, matching GetPrimarySource()'s.
-			TestEqual(FString::Printf(TEXT("T-1100 / an outside code review's round-2 finding 1 "
+			TestEqual(FString::Printf(TEXT("An outside code review's round-2 finding 1 "
 				"(ResyncChannelSlidersToPrimarySource -> RunQuery's Args.Channels.Add): the "
 				"channel-slider label rendered at index %d "
 				"must equal GetPrimarySource().GetChannelName(%d), since RunQuery binds that "
@@ -1502,14 +1500,14 @@ bool FSuperFAISSArchiveOpenChannelSliderLabelIdentityTest::RunTest(const FString
 }
 
 // ===========================================================================
-// T-1121 (2026-07-26) -- a confirmation review of the T-1100 remedy, finding 2: at the time of
+// A confirmation review of that remedy (2026-07-26), finding 2: at the time of
 // that finding, the channel-slider resync shared the same guard as the projection-scope combo
 // (`ChannelSliderNames.Num() == 0 || bPreviousPrimaryWasArchive`), which closed the
 // archive-to-archive form of the mislabelled-weight failure (the cell immediately above) but
 // explicitly excluded the FIRST primary-archive open after an ASSET selection: neither half of
 // the guard's condition was true there, so the resync was skipped and the combo kept the asset's
-// own channel names on screen while GetPrimarySource() already resolved to the archive. D-INSP-27
-// (below) decouples the two: ResyncChannelSlidersToPrimarySource() now runs unconditionally on
+// own channel names on screen while GetPrimarySource() already resolved to the archive. The
+// channel-weight reset rule (below) decouples the two: ResyncChannelSlidersToPrimarySource() now runs unconditionally on
 // every primary-source change, independent of the guard, so this sequence resyncs the labels too
 // -- the guard's asset-driven exclusion (section 25.3's design note) now governs only the
 // projection-scope combo, whose three GetChannelIndex call sites (`SSuperFAISSBankInspector.cpp`)
@@ -1544,7 +1542,7 @@ bool FSuperFAISSAssetThenArchiveChannelSliderLabelIdentityTest::RunTest(const FS
 	// The archive: the SAME channel COUNT (2), DISJOINT names -- the exact shape the finding
 	// named: equal counts is what kept RunQuery's `bChannels` guard true rather than degrading to
 	// an unweighted query, which is what made the mislabel (rather than a silent degrade)
-	// reproducible before D-INSP-27's unconditional resync closed it.
+	// reproducible before the unconditional resync closed it.
 	const TArray<FName> ArchiveNames = {TEXT("archD1"), TEXT("archD2")};
 	const TArray<int32> ArchiveOffsets = {0, 4};
 	const TArray<int32> ArchiveLengths = {4, 4};
@@ -1580,7 +1578,7 @@ bool FSuperFAISSAssetThenArchiveChannelSliderLabelIdentityTest::RunTest(const FS
 	}
 
 	// The reachable sequence the finding names: the FIRST primary-archive open after an asset
-	// selection. Before D-INSP-27, the channel-slider resync shared the projection-scope guard
+	// selection. Before the reset rule, the channel-slider resync shared the projection-scope guard
 	// (`ChannelSliderNames.Num() == 0 || bPreviousPrimaryWasArchive`) -- both false here (the
 	// asset already populated the combo, and the source that populated it was NOT an archive) --
 	// so the resync was explicitly skipped and the combo kept the asset's own channel names on
@@ -1600,7 +1598,7 @@ bool FSuperFAISSAssetThenArchiveChannelSliderLabelIdentityTest::RunTest(const FS
 	{
 		for (int32 C = 0; C < 2; ++C)
 		{
-			// THE INVARIANT (D-INSP-27 closes a confirmation review's finding 2;
+			// THE INVARIANT (the reset rule closes a confirmation review's finding 2;
 			// ResyncChannelSlidersToPrimarySource -> RunQuery's Args.Channels.Add): RunQuery
 			// issues Args.Channels.Add({Source.GetChannelName(C), ChannelWeights[C]}) -- the
 			// weight this slider's label displays is bound to Source.GetChannelName(C) (the
@@ -1629,12 +1627,12 @@ bool FSuperFAISSAssetThenArchiveChannelSliderLabelIdentityTest::RunTest(const FS
 }
 
 // ===========================================================================
-// D-INSP-27 (2026-07-26): channel-slider weights reset to their 1.0 default on EVERY
+// The channel-weight reset rule (2026-07-26): channel-slider weights reset to their 1.0 default on EVERY
 // primary-source change, asset or archive -- V32-G2 (`SuperFAISS_V2_Plan.md:2163`) and the
 // shipped class tooltip (`SuperFAISSInspectorSettings.h:13-16`) both already said so; the
-// by-name carryover `RepopulateChannelState()` gained under T-1100 contradicts both and is
+// by-name carryover `RepopulateChannelState()` gained in the earlier fix contradicts both and is
 // ruled removed rather than scoped. Both cells below were blocked until
-// `SetChannelWeightForTest` (T-1123) existed -- with no writer of `ChannelWeights` reachable
+// `SetChannelWeightForTest` existed -- with no writer of `ChannelWeights` reachable
 // from test code, "the weight reads 1.0 after a change" was indistinguishable from a value
 // that had simply never moved (section 11 above). The seam is now built and reproduces the
 // Slate slider's own guard/assignment against the same array, so a test that drives it
@@ -1681,14 +1679,14 @@ namespace
 }
 
 // ===========================================================================
-// Cell A -- D-INSP-27's reset claim on the primary-BANK-change path (V32-G2,
+// Cell A -- the reset rule's claim on the primary-BANK-change path (V32-G2,
 // `SuperFAISS_V2_Plan.md:2163`; the tooltip, `SuperFAISSInspectorSettings.h:13-16`). Two assets
 // carrying the SAME channel name ("text") is deliberate, not incidental: it is the one shape
-// under which `RepopulateChannelState()`'s by-name carryover (T-1100) finds a name match and
+// under which `RepopulateChannelState()`'s by-name carryover finds a name match and
 // PRESERVES the outgoing weight across the swap. A cell built with two DIFFERENT channel names
 // would pass identically whether the carryover is present or removed -- the name lookup would
 // already miss and reset to default either way, proving nothing about the carryover's presence.
-// Same name is what made this cell fail red under the carryover, and it passed once D-INSP-27's
+// Same name is what made this cell fail red under the carryover, and it passed once the carryover's
 // removal landed.
 // ===========================================================================
 
@@ -1714,7 +1712,7 @@ bool FSuperFAISSPrimaryBankChangeResetsChannelWeightsTest::RunTest(const FString
 
 	// (setup) sanity control 1, before the seam ever runs: isolates the harness itself (asset
 	// selection, the render, the read helper) from the seam and from the cell under test. A
-	// failure here means the fixture or the read surface is broken, not that D-INSP-27 held.
+	// failure here means the fixture or the read surface is broken, not that the reset rule held.
 	{
 		const TArray<TPair<FString, float>> Initial = CollectChannelSliderNameWeightPairs(Inspector);
 		TestEqual(TEXT("(setup) one channel slider renders after AssetOne is selected"), Initial.Num(), 1);
@@ -1756,18 +1754,18 @@ bool FSuperFAISSPrimaryBankChangeResetsChannelWeightsTest::RunTest(const FString
 	Inspector->SetBankForTest(AssetTwo);
 
 	const TArray<TPair<FString, float>> AfterSwap = CollectChannelSliderNameWeightPairs(Inspector);
-	TestEqual(TEXT("D-INSP-27: one channel slider renders for AssetTwo's own 'text' channel"),
+	TestEqual(TEXT("Reset rule: one channel slider renders for AssetTwo's own 'text' channel"),
 		AfterSwap.Num(), 1);
 	if (AfterSwap.Num() == 1)
 	{
 		TestEqual(TEXT("(setup) the surviving slider is still named 'text' -- confirms this is the "
 			"name-collision path the carryover keys on, not a coincidental empty combo"),
 			AfterSwap[0].Key, FString(TEXT("text")));
-		TestTrue(TEXT("D-INSP-27 (V32-G2, SuperFAISSInspectorSettings.h:13-16): every channel weight "
+		TestTrue(TEXT("Reset rule (V32-G2, SuperFAISSInspectorSettings.h:13-16): every channel weight "
 			"resets to its 1.0 default on a primary-BANK change, even when the outgoing and "
 			"incoming banks share a channel name. A regression that reintroduces "
-			"RepopulateChannelState()'s by-name carryover (removed under D-INSP-27, previously "
-			"added under T-1100) would preserve the pre-change 0.0 weight across this exact "
+			"RepopulateChannelState()'s by-name carryover (removed by the reset rule, previously "
+			"added by an earlier fix) would preserve the pre-change 0.0 weight across this exact "
 			"same-name swap instead of resetting it -- bit-exact, a literal round-tripped "
 			"through \"%.2f\"/Atof, no arithmetic involved"),
 			AfterSwap[0].Value == 1.0f);
@@ -1777,14 +1775,14 @@ bool FSuperFAISSPrimaryBankChangeResetsChannelWeightsTest::RunTest(const FString
 }
 
 // ===========================================================================
-// Cell C -- D-INSP-27's reset claim on the exact path T-1100's by-name carryover was WRITTEN
+// Cell C -- the reset rule's claim on the exact path the by-name carryover was WRITTEN
 // for: a second (or later) primary-ARCHIVE open resyncing over a prior primary archive
 // (`bPreviousPrimaryWasArchive`, SSuperFAISSBankInspector.cpp:1141,1185). Archive A and archive B
 // share the SAME channel name ("text") for the identical reason Cell A's two assets do -- the
 // carryover's name lookup only has something to preserve when the outgoing and incoming sources
 // agree on a channel name; a disjoint-name pair (as SuperFAISS.D.ArchiveOpenChannelSliderLabelIdentity
 // above uses, to pin a different invariant) would reset to default under the carryover exactly as
-// it would with the carryover removed, proving nothing about D-INSP-27's own claim.
+// it would with the carryover removed, proving nothing about the reset rule's own claim.
 // ===========================================================================
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -1859,23 +1857,23 @@ bool FSuperFAISSArchiveResyncResetsChannelWeightsTest::RunTest(const FString& Pa
 	// bPreviousPrimaryWasArchive true (SSuperFAISSBankInspector.cpp:1141). At HEAD,
 	// ResyncChannelSlidersToPrimarySource() resyncs the weight sliders unconditionally on this
 	// path regardless of that flag or of ChannelSliderNames.Num() -- this is the exact sequence
-	// T-1100's own commit message described as the (now-removed) carryover's target ("archive
+	// the earlier fix's own commit message described as the (now-removed) carryover's target ("archive
 	// #1's... state... a user's slider position is lost only when the name it belonged to is
 	// gone").
 	TestTrue(TEXT("archive B opens on the primary slot, resyncing over archive A"),
 		Inspector->OpenScratchArchiveFromBytes(BytesB, TEXT("resync-archive-b.bin")));
 
 	const TArray<TPair<FString, float>> AfterResync = CollectChannelSliderNameWeightPairs(Inspector);
-	TestEqual(TEXT("D-INSP-27: one channel slider renders for archive B's own 'text' channel"),
+	TestEqual(TEXT("Reset rule: one channel slider renders for archive B's own 'text' channel"),
 		AfterResync.Num(), 1);
 	if (AfterResync.Num() == 1)
 	{
 		TestEqual(TEXT("(setup) the surviving slider is still named 'text' -- confirms this is the "
 			"name-collision path the carryover keys on, not a coincidental empty combo"),
 			AfterResync[0].Key, FString(TEXT("text")));
-		TestTrue(TEXT("D-INSP-27 (V32-G2, SuperFAISSInspectorSettings.h:13-16): every channel weight "
+		TestTrue(TEXT("Reset rule (V32-G2, SuperFAISSInspectorSettings.h:13-16): every channel weight "
 			"resets to its 1.0 default on a primary-source change to an archive too, including the "
-			"exact archive-resync path T-1100's own carryover was written for. A regression that "
+			"exact archive-resync path the by-name carryover was written for. A regression that "
 			"reintroduces RepopulateChannelState()'s by-name carryover would preserve the "
 			"pre-resync 0.0 weight across this same-name swap instead of resetting it -- "
 			"bit-exact, a literal round-tripped through \"%.2f\"/Atof, no arithmetic involved"),

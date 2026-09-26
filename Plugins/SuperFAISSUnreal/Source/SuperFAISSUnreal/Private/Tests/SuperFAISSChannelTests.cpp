@@ -227,7 +227,7 @@ bool FSuperFAISSChannelQueryTest::RunTest(const FString& Parameters)
 			ESuperFAISSBankMetric::Cosine, ESuperFAISSBankQuantization::Float32, {},
 			TEXT("x"), Error, {TEXT("a"), TEXT("a")}, {0, 16}, {16, 16}));
 
-		// F4 (D-V32-89): Offset + Length that overflows int32 must be rejected
+		// F4: Offset + Length that overflows int32 must be rejected
 		// BY THIS LOOP'S OWN CHECK, with its clear per-channel error — not merely
 		// by the core's independent (already int64-safe) re-validation a few
 		// lines later. Offset alone already exceeds Dims here (0x40000000,

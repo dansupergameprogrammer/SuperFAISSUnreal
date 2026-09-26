@@ -1,4 +1,4 @@
-// Per-row bias tests (V2.1, plan section 18 / T-056): both forms through the
+// Per-row bias tests (V2.1, plan section 18): both forms through the
 // subsystem, the N2 snapshot-alignment rejection on scratch banks, exactness of
 // lift and eviction, the decomposition bias term, and the rejection matrix. The
 // core's own composed-reference/batch/intersect proofs are T24.
@@ -155,7 +155,7 @@ bool FSuperFAISSBiasTest::RunTest(const FString& Parameters)
 			Contributions[0] + Contributions[1] + PairBias, Total);
 	}
 
-	// Scratch banks: bias is index-aligned to the snapshot (T-055 N2) - a stale
+	// Scratch banks: bias is index-aligned to the snapshot - a stale
 	// count is rejection; the pairs form composes with tombstone exclusion.
 	{
 		USuperFAISSScratchBank* Memory = NewObject<USuperFAISSScratchBank>();

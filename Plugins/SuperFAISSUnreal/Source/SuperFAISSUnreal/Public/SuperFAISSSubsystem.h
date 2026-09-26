@@ -268,7 +268,7 @@ public:
 	// Scratch-bank query (V2 plan section 7): pins the bank for the flight
 	// (V2-G5), snapshots, and scans with the snapshot's tombstones OR'd into the
 	// exclusion set - deletion is exclusion. Refused while the bank is draining
-	// for a Grow/Freeze/Load (T-044 N4 - this is the one dispatch-point gate).
+	// for a Grow/Freeze/Load (this is the one dispatch-point gate).
 	// Args.Channels resolves against the scratch bank's own channel table
 	// (V3.0 slot 5; the bank must have been created with InitWithChannels —
 	// a channel query on a table-less bank is rejected). Args.Segments raw
@@ -439,7 +439,7 @@ public:
 	bool MaxNearestNeighborCrossDevice(const USuperFAISSVectorBank* SourceBank,
 		const USuperFAISSVectorBank* TargetBank, float& OutValue);
 
-	// Within-bank dispersion (plan 22.4, spread = centroid-dispersion, D-V2-11): the
+	// Within-bank dispersion (plan 22.4, spread = centroid-dispersion): the
 	// mean (or max) distance of each selected row to the selection's OWN cross-device
 	// centroid, in the bank's metric. RowIndices are the rows to include (ascending
 	// for the pinned mean order); empty selection -> false.
@@ -451,7 +451,7 @@ public:
 	// Cross-device score between two pooled/lifted payloads (plan 22.4): the shared
 	// primitive the operators above rest on, in Metric's distance sense (Dot: dot
 	// similarity; L2: squared distance; Cosine: 1 - cos, the one runtime sqrt). This
-	// is the PUBLIC boundary and carries the D-V2-13 guard: it validates both payloads
+	// is the PUBLIC boundary and carries the -128 guard: it validates both payloads
 	// (IsPayloadValid) and rejects any int8 image element equal to -128 (the +-127
 	// premise the int32 cross-dot bound rests on) -> false. Cosine requires a nonzero
 	// self-dot on both members -> false otherwise.

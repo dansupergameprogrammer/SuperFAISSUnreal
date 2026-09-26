@@ -4,7 +4,7 @@
 //
 // COMPILE STATUS: compiles and runs TODAY. `ScoreXdPairSegmented` (analytics.h) and
 // `ValidateSegments` (validate.h) are already vendored, built, and CLOSED at Gate 0b
-// (D-SLM1726/1783-1807) -- these cells need no panel seam and no widget code, only the
+// -- these cells need no panel seam and no widget code, only the
 // already-shipped core the plugin's ThirdParty tree already vendors. This file is the
 // governed suite's one immediately-green cluster; every other governed file in this
 // directory awaits Gate 6a/6b's panel symbols.
@@ -110,7 +110,7 @@ bool FSuperFAISSScoreXdPairSegmentedDegenerateIdentityTest::RunTest(const FStrin
 			ScoreZeroCount, ScoreUnsegmented);
 
 		// segments==nullptr with a POSITIVE segmentCount also takes the degenerate path
-		// (D-SLM1311: "never dereferenced") -- a distinct trigger from segmentCount==0.
+		// ("never dereferenced") -- a distinct trigger from segmentCount==0.
 		float ScoreNullSegments = 0.0f;
 		const Status StatusNullSegments = ScoreXdPairSegmented(Fixture.A, Fixture.B, Fixture.PaddedDims, Metrics[m],
 			nullptr, 3, &ScoreNullSegments);
@@ -206,7 +206,7 @@ bool FSuperFAISSScoreXdPairSegmentedSegmentValidationTest::RunTest(const FString
 		AssertExactValue(*this, TEXT("segmentCount > kMaxSegments: status InvalidArgument"), static_cast<int32>(St), static_cast<int32>(Status::InvalidArgument));
 	}
 	// Negative, finite weight -- this primitive's own STRICTER-than-ValidateSegments rule
-	// (D-SLM1315/1312, dim 8's own named departure).
+	// (dim 8's own named departure).
 	{
 		const QuerySegment Bad[1] = { {0, 16, -1.0f} };
 		const Status StDot = ScoreXdPairSegmented(Fixture.A, Fixture.B, Fixture.PaddedDims, Metric::Dot, Bad, 1, &Score);

@@ -1,4 +1,4 @@
-// Scratch-bank Relabel tests (T-099 slot 4, V3.1 mutable channel vocabulary on the
+// Scratch-bank Relabel tests (V3.1 slot 4, mutable channel vocabulary on the
 // plugin surface). The core Relabel is green and tag-shipped; this suite proves the
 // plugin wrapper — USuperFAISSScratchBank::Relabel — surfaces it correctly: the two-step
 // gate (core-surface parity, then a named-channel query over the NEW partition returns the

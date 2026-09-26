@@ -1,7 +1,7 @@
 // SuperFAISS For Unreal 3.4 (drift + diversity) -- the two named assertion helpers §11 of
 // the 3.4 drift-and-diversity plan requires every drift/diversity
-// oracle or mutant-discrimination comparison to route through, and nowhere else
-// (D-INSP-64/D-INSP-67). This file is deliberately OUTSIDE the governed
+// oracle or mutant-discrimination comparison to route through, and nowhere else.
+// This file is deliberately OUTSIDE the governed
 // `Tests/DriftDiversityOracle/` directory -- it is the shared surface the governed files call
 // into, not one of them -- because `AssertWithinQuantizationTolerance`'s own body legitimately
 // contains the four-argument `TestEqual(..., Tolerance)` call
@@ -37,7 +37,7 @@
 
 #include "Containers/UnrealString.h"
 
-// Exact-comparison entry point (D-INSP-64). One overload per governed-comparison value type;
+// Exact-comparison entry point. One overload per governed-comparison value type;
 // each body is the engine's exact comparison for its type (the float/double bodies pass a zero
 // tolerance explicitly, and the FString body uses the case-sensitive comparison, above). Adding a type used by a future governed cell means adding an
 // overload here, never reaching for `FMath::IsNearlyEqual` or a four-argument `TestEqual` at

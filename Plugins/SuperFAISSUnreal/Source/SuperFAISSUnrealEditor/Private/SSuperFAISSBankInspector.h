@@ -195,7 +195,7 @@ struct FSuperFAISSDriftResult
 	bool bCancelled = false;
 
 	// Whole-row headline (§8.1, §8.3.1) -- re-pointed to a scoped channel's own values when
-	// the shared analysis-scope combo is scoped to one channel (§8.2, D-INSP-37).
+	// the shared analysis-scope combo is scoped to one channel (§8.2).
 	float Movement = 0.0f;
 	float SpreadCurrent = 0.0f;
 	float SpreadBaseline = 0.0f;
@@ -375,7 +375,7 @@ struct FSuperFAISSArchiveSlotState
 //   On channel banks (schema 2) a weight slider per named channel drives the query,
 //   and every hit carries decomposition bars — per-channel contributions from
 //   DecomposeHit, which sum exactly to the score (V2 plan section 6). Displayed
-//   per-channel cosines clamp to [-1, 1] (T-044 W2d: int8 quantization noise can
+//   per-channel cosines clamp to [-1, 1] (int8 quantization noise can
 //   push a shade past 1; the clamp is display-only and marked when it fires).
 //   V3.4 (plan §9): a result-count control (K, [1, kHardQueryKCap]) and a diversity
 //   slider (λ in [0, 1], default 1). Every query over-fetches K x kDiversityPoolMultiplier
@@ -510,7 +510,7 @@ public:
 	FSuperFAISSInspectionSource GetPrimarySource() const;
 	FSuperFAISSInspectionSource GetComparisonSource() const;
 
-	// D-INSP-36 / plan §7.2: the shared identity block -- renders which two banks a
+	// Plan §7.2: the shared identity block -- renders which two banks a
 	// displayed number actually came from (display name, live row count, dims, metric,
 	// quantization for each side). One implementation shared by Correspondence's picker
 	// (below) and, once built, Drift's panel -- the identity of "which two banks produced
@@ -558,7 +558,7 @@ public:
 	// cost measurement runs against.
 	static constexpr int32 kDefaultQueryK = 12;
 	static constexpr int32 kHardQueryKCap = 100;
-	// V3.4 plan §9.3 (D-INSP-35): the candidate pool is K x this fixed multiplier, read from
+	// V3.4 plan §9.3: the candidate pool is K x this fixed multiplier, read from
 	// the same query the relevance-only path builds.
 	static constexpr int32 kDiversityPoolMultiplier = 4;
 
@@ -578,7 +578,7 @@ public:
 	static const TCHAR* DiversityMidSelectionRefusalNote();
 	static const TCHAR* DiversityL2ZeroScaleRefusalNote();
 
-	// T-06/T-815: the pre-run cost disclosure CHANGELOG.md's [3.2.0] entry claims
+	// The pre-run cost disclosure CHANGELOG.md's [3.2.0] entry claims
 	// ("Disclosed as the HEAVY pass in the set -- cost scales with both banks' sizes --
 	// before it runs"). Read-only, non-mutating, callable at any time -- in particular
 	// BEFORE ComputeCorrespondence() is ever invoked. Reports on whatever
@@ -704,7 +704,7 @@ public:
 	void SetDiversityLambdaForTest(float Lambda) { DiversityLambda = Lambda; }
 	// The last query's displayed selection, in §9.7's contract shape.
 	FSuperFAISSMMRSelectionForTest GetLastMMRSelectionForTest() const;
-	// §9.7 (D-SLM1837): replaces the resolved segment list SelectDiverseMMR's redundancy call
+	// §9.7: replaces the resolved segment list SelectDiverseMMR's redundancy call
 	// receives, for the NEXT RunQuery call only, then resets to empty (one-shot, consumed --
 	// DebugCancelAfterChunks's convention). Empty (the default) means no override.
 	void SetDiversitySegmentOverrideForTest(const TArray<superfaiss::QuerySegment>& Segments)
@@ -971,7 +971,7 @@ private:
 	// unconditionally by OnBankSelected() -- an asset selection always resets both.
 	void RepopulateChannelState();
 
-	// D-INSP-27: the channel-weight sliders reset to their 1.0 default on EVERY primary-
+	// The channel-weight sliders reset to their 1.0 default on EVERY primary-
 	// source change (asset or archive), unconditionally -- no by-name carryover. Also
 	// keeps ChannelSliderNames in lockstep with GetPrimarySource()'s own channel table on
 	// every source change, which RunQuery's positional binding requires:
@@ -1087,7 +1087,7 @@ private:
 	// changes, since the text names a row of the previous source.
 	FString LastQueryText;
 	// The λ slider's and K control's shared change handler: store the value, then re-run the
-	// last query (warm cost at most tens of milliseconds, D-SLM7842).
+	// last query (warm cost at most tens of milliseconds).
 	void OnDiversityControlChanged();
 
 	// V3.4 plan §9.1a: Metric::L2's bank-intrinsic scale L = sqrt(Spread(current)), computed

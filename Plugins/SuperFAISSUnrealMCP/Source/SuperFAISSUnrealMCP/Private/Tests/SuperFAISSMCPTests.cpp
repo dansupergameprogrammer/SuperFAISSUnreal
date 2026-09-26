@@ -231,7 +231,7 @@ bool FSuperFAISSMCPToolGoldensTest::RunTest(const FString& Parameters)
 		}
 	}
 
-	// Scratch tools (D-M3, read-only): a live scratch bank is listed, described,
+	// Scratch tools (read-only): a live scratch bank is listed, described,
 	// and queried through the tool path.
 	{
 		USuperFAISSScratchBank* Scratch = NewObject<USuperFAISSScratchBank>();

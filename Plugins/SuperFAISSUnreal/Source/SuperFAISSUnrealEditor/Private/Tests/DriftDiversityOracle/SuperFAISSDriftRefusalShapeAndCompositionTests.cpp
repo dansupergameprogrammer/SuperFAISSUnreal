@@ -1,6 +1,6 @@
 // SuperFAISS For Unreal 3.4 -- drift's refusal, shape, lifetime, and composition cells
 // (the 3.4 drift-and-diversity plan §12 dims 1/2/3a/4/5/6/8/11,
-// drift halves). 2026-08-08, D-SLM1830 completion pass.
+// drift halves). 2026-08-08 completion pass.
 //
 // COMPILE STATUS: does not compile yet -- awaits Gate 6a's `GetDriftResultForTest()`,
 // `DriftChunksProcessedForTest`, and cache-invalidation wiring. Authored against the exact
@@ -78,7 +78,7 @@ bool FSuperFAISSDriftQuantizationRefusalTest::RunTest(const FString& Parameters)
 }
 
 // ===========================================================================
-// dim 2/dim 5/dim 11: Metric::Dot whole-panel refusal (§8.4, D-INSP-42) -- fires exactly
+// dim 2/dim 5/dim 11: Metric::Dot whole-panel refusal (§8.4) -- fires exactly
 // on Metric::Dot, with the exact stated text, and no operator runs (G-25). The negative
 // side (Cosine/L2 do not refuse) is already proven by every other test in this directory
 // that builds a Cosine or L2 bank and gets a normal result.
@@ -191,7 +191,7 @@ bool FSuperFAISSDriftZeroNormQueryRefusalTest::RunTest(const FString& Parameters
 		Error, ChannelNames, ChannelOffsets, ChannelLengths);
 	AssertExactValue(*this, TEXT("(setup) Cosine baseline bakes"), bBaselineOk, true);
 
-	// The stale value must be a real, NONZERO prior movement (D-SLM1872): a self-comparison
+	// The stale value must be a real, NONZERO prior movement: a self-comparison
 	// computes exactly 0.0f by §8.7, which is also the refusal's own reset default, so
 	// `Movement == StaleMovement` would hold whether or not the panel resets. The prior compute
 	// therefore runs between two DISTINCT Cosine banks -- Fixture C's rotated population as
@@ -356,7 +356,7 @@ bool FSuperFAISSDriftSharedSlotCrossFeatureIdentityTest::RunTest(const FString& 
 }
 
 // ===========================================================================
-// dim 8: the scope-combo crossing (§8.2, Option A / D-INSP-37) -- scoping the analysis
+// dim 8: the scope-combo crossing (§8.2, Option A) -- scoping the analysis
 // combo to one channel scopes Drift's result to that same channel identically to how
 // Structure/Novelty already respond: a chanA-scoped compute reports chanA's own movement,
 // not the whole-row one.

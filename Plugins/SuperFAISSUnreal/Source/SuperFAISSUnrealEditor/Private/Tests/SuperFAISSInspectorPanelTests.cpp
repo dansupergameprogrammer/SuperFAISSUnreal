@@ -967,7 +967,7 @@ bool FSuperFAISSInspectorDotVerdictUnavailableTest::RunTest(const FString& Param
 // Dim 10 (channel-scoped Novelty FEAT leg, "the PANEL-level tri-state at the
 // widget"): a Cosine exact-direction twin and an int8 L2
 // dequant-identical/byte-different twin, ADAPTED from the core suite
-// (`D:\SuperFAISS\tests\test_main.cpp` TestM2NoveltyProbeDistance) — same
+// (the core repository's `tests/test_main.cpp` TestM2NoveltyProbeDistance) — same
 // dims=32/channels={{0,16},{16,16}} grid alignment (a past lesson) and the same
 // channel-0/channel-1 payload values, but as TWO STORED BANK ROWS rather than one
 // stored row plus a hand-built probe vector: View B's probe (section 25.5) always
@@ -1690,7 +1690,7 @@ bool FSuperFAISSInspectorCorrespondenceCancelTest::RunTest(const FString& Parame
 
 // Dim 10 (the crux): the Correspondence Panel FEAT, PORTED from the
 // core-level permutation fixture (TestM3CorrespondencePermutationFeat,
-// D:\SuperFAISS\tests\test_main.cpp) and re-shaped for the widget's own sample cap
+// the core repository's tests/test_main.cpp) and re-shaped for the widget's own sample cap
 // (fixture-engagement law: sized ABOVE SampleLimit=2048, not the core fixture's
 // hand-picked small sample). The core fixture's one-hot-per-landmark geometry (dims ==
 // landmark count) does not scale to 2048+ rows without an O(cap x B.count x dims) cost

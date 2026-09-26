@@ -185,7 +185,7 @@ bool USuperFAISSScratchBank::InitWithChannels(int32 Capacity, int32 Dims,
 	{
 		superfaiss::ChannelInfo Info;
 		Info.offset = InChannelOffsets[C];
-		// Widen to int64 before comparing (F4, D-V32-89): Offset and Length are
+		// Widen to int64 before comparing (F4): Offset and Length are
 		// caller-supplied int32s, and their sum can overflow before it is compared
 		// against Dims.
 		Info.length = (static_cast<int64>(InChannelOffsets[C]) + InChannelLengths[C] == Dims)
@@ -250,7 +250,7 @@ bool USuperFAISSScratchBank::Relabel(const TArray<FName>& InChannelNames,
 	{
 		superfaiss::ChannelInfo Info;
 		Info.offset = InChannelOffsets[C];
-		// Widen to int64 before comparing (F4, D-V32-89): Offset and Length are
+		// Widen to int64 before comparing (F4): Offset and Length are
 		// caller-supplied int32s, and their sum can overflow before it is compared
 		// against Dims.
 		Info.length = (static_cast<int64>(InChannelOffsets[C]) + InChannelLengths[C] == Dims)
@@ -389,7 +389,7 @@ bool USuperFAISSScratchBank::Remove(int32 Index)
 bool USuperFAISSScratchBank::DrainAndRun(TFunctionRef<bool()> Op)
 {
 	// Core BeginExclusive refuses new pins (the subsystem's TryPin fails at the
-	// dispatch gate, T-044 N4) and waits the in-flight ones out with the seq_cst
+	// dispatch gate) and waits the in-flight ones out with the seq_cst
 	// pairing the protocol's safety requires (F4). A false return means
 	// another exclusive operation is in progress: writer-coordination misuse.
 	if (!Bank.BeginExclusive())
